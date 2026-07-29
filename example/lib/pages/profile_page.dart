@@ -9,11 +9,11 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DemoPageScaffold(
+    return const DemoPageScaffold(
       title: 'Profile',
       leadingEmoji: '👤',
       subtitle: 'Settings-style page for slower nav taps',
-      children: const [
+      children: [
         LiquidGlassCard(
           child: Row(
             children: [
@@ -44,6 +44,16 @@ class ProfilePage extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        SizedBox(height: 24),
+
+        LiquidGlassTextField(
+          decoration: InputDecoration(
+            hintText: 'Enter text',
+            hintStyle: TextStyle(color: Color(0x99FFFFFF)),
+          ),
+          style: TextStyle(color: Colors.white, fontSize: 14),
+          borderRadius: BorderRadius.all(Radius.circular(50)),
         ),
         SizedBox(height: 24),
         SectionLabel('Settings'),

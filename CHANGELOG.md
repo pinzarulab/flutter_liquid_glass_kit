@@ -1,3 +1,10 @@
+## 1.2.1
+
+- Clamp native iOS colour components and render iOS 26 surfaces with `glassEffect` directly to reduce drawable pressure.
+- Add a configurable upward-scroll threshold before the navigation bar expands.
+- Improve Android scrolling performance by lowering the default blur cap, pausing blur and shadows without remounting descendants, and delaying effect restoration until scrolling settles.
+- Add `LiquidGlassTextField`, keeping Flutter text editing over the platform-adaptive glass surface.
+
 ## 1.2.0
 
 - Make `LiquidGlassNavBar` a normal layout widget and add `LiquidGlassFloatingNavBar` for safe-area-aware floating placement.

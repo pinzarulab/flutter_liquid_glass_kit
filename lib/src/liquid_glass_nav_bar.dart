@@ -335,16 +335,23 @@ class LiquidGlassNavBarScrollConfiguration {
   const LiquidGlassNavBarScrollConfiguration({
     this.collapsedScale = 0.82,
     this.collapseThreshold = 12,
+    this.expandThreshold = 12,
     this.animationDuration = const Duration(milliseconds: 280),
     this.idleExpandDuration = const Duration(seconds: 5),
   })  : assert(collapsedScale > 0 && collapsedScale <= 1),
-        assert(collapseThreshold >= 0);
+        assert(collapseThreshold >= 0),
+        assert(expandThreshold >= 0);
 
   /// Scale applied to both width and height while collapsed.
   final double collapsedScale;
 
   /// Accumulated downward scroll distance required before collapsing.
   final double collapseThreshold;
+
+  /// Accumulated upward scroll distance required before expanding.
+  ///
+  /// This filters out tiny direction changes while a downward gesture settles.
+  final double expandThreshold;
 
   /// Duration of the resize animation.
   final Duration animationDuration;
@@ -358,6 +365,7 @@ class LiquidGlassNavBarScrollConfiguration {
         other is LiquidGlassNavBarScrollConfiguration &&
             collapsedScale == other.collapsedScale &&
             collapseThreshold == other.collapseThreshold &&
+            expandThreshold == other.expandThreshold &&
             animationDuration == other.animationDuration &&
             idleExpandDuration == other.idleExpandDuration;
   }
@@ -366,6 +374,7 @@ class LiquidGlassNavBarScrollConfiguration {
   int get hashCode => Object.hash(
         collapsedScale,
         collapseThreshold,
+        expandThreshold,
         animationDuration,
         idleExpandDuration,
       );
@@ -389,6 +398,7 @@ class _NavBarScrollBehavior {
   Timer? _idleExpandTimer;
   LiquidGlassNavBarScrollConfiguration? _configuration;
   double _accumulatedDownwardScroll = 0;
+  double _accumulatedUpwardScroll = 0;
 
   bool isCollapsed = false;
 
@@ -417,12 +427,21 @@ class _NavBarScrollBehavior {
 
     final metrics = notification.metrics;
     final delta = notification.scrollDelta ?? 0;
-    if (metrics.pixels <= metrics.minScrollExtent || delta < 0) {
+    if (metrics.pixels <= metrics.minScrollExtent) {
       expand();
       return;
     }
-    if (delta <= 0) return;
+    if (delta < 0) {
+      _accumulatedDownwardScroll = 0;
+      _accumulatedUpwardScroll += -delta;
+      if (_accumulatedUpwardScroll >= configuration.expandThreshold) {
+        expand();
+      }
+      return;
+    }
+    if (delta == 0) return;
 
+    _accumulatedUpwardScroll = 0;
     _accumulatedDownwardScroll += delta;
     if (_accumulatedDownwardScroll >= configuration.collapseThreshold) {
       _setCollapsed(true);
@@ -435,6 +454,7 @@ class _NavBarScrollBehavior {
     _idleExpandTimer?.cancel();
     _idleExpandTimer = null;
     _accumulatedDownwardScroll = 0;
+    _accumulatedUpwardScroll = 0;
     _setCollapsed(false);
   }
 

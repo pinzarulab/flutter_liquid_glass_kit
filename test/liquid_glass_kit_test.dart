@@ -26,6 +26,11 @@ void main() {
     expect(updated.blurSigma, 28);
   });
 
+  test('settings use the balanced Android blur cap by default', () {
+    expect(const LiquidGlassSettings().androidBlurSigma, 8);
+    expect(LiquidGlassSettings.matteDark.androidBlurSigma, 8);
+  });
+
   test('equivalent settings use value equality', () {
     const first = LiquidGlassSettings(
       tintColor: Colors.blue,
@@ -46,6 +51,7 @@ void main() {
 
     expect(first.collapsedScale, 0.82);
     expect(first.collapseThreshold, 12);
+    expect(first.expandThreshold, 12);
     expect(first.animationDuration, const Duration(milliseconds: 280));
     expect(first.idleExpandDuration, const Duration(seconds: 5));
     expect(first, second);
@@ -137,7 +143,85 @@ void main() {
     expect(find.byType(FallbackGlass), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('grouped Android glass skips blur while scrolling', (
+  testWidgets('glass text field keeps editing in Flutter', (tester) async {
+    final controller = TextEditingController(text: 'Initial');
+    addTearDown(controller.dispose);
+    String? changedValue;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LiquidGlassTextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Name'),
+          onChanged: (value) => changedValue = value,
+        ),
+      ),
+    );
+
+    expect(find.byType(FallbackGlass), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.decoration?.border, InputBorder.none);
+    expect(field.decoration?.focusedBorder, InputBorder.none);
+
+    await tester.enterText(find.byType(TextField), 'Daniel');
+    expect(controller.text, 'Daniel');
+    expect(changedValue, 'Daniel');
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('uncontrolled glass text survives scroll effect changes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 320,
+            child: LiquidGlassBackdropGroup(
+              effectRestoreDelay: Duration.zero,
+              child: ListView(
+                children: const [
+                  LiquidGlassTextField(
+                    key: ValueKey('uncontrolled-field'),
+                    decoration: InputDecoration(hintText: 'Name'),
+                  ),
+                  SizedBox(height: 800),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(
+      find.byKey(const ValueKey('uncontrolled-field')),
+      'Keep this text',
+    );
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      'Keep this text',
+    );
+
+    final gesture = await tester.startGesture(const Offset(200, 260));
+    await gesture.moveBy(const Offset(0, -20));
+    await tester.pump();
+
+    expect(_backdropFiltersEnabled(tester), isFalse);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      'Keep this text',
+    );
+
+    await gesture.cancel();
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      'Keep this text',
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('grouped Android glass skips expensive effects while scrolling', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -164,6 +248,8 @@ void main() {
     );
 
     expect(find.byType(BackdropFilter), findsWidgets);
+    expect(_backdropFiltersEnabled(tester), isTrue);
+    expect(_hasFallbackShadow(tester), isTrue);
     final initialKey = tester
         .widget<BackdropGroup>(
           find.byType(BackdropGroup),
@@ -174,15 +260,24 @@ void main() {
     await gesture.moveBy(const Offset(0, -100));
     await tester.pump();
 
-    expect(find.byType(BackdropFilter), findsNothing);
+    expect(find.byType(BackdropFilter), findsWidgets);
+    expect(_backdropFiltersEnabled(tester), isFalse);
+    expect(_hasFallbackShadow(tester), isFalse);
     expect(
       tester.widget<BackdropGroup>(find.byType(BackdropGroup)).backdropKey,
       same(initialKey),
     );
 
     await gesture.up();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 79));
     expect(find.byType(BackdropFilter), findsWidgets);
+    expect(_backdropFiltersEnabled(tester), isFalse);
+    expect(_hasFallbackShadow(tester), isFalse);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(find.byType(BackdropFilter), findsWidgets);
+    expect(_backdropFiltersEnabled(tester), isTrue);
+    expect(_hasFallbackShadow(tester), isTrue);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('components inherit group settings and allow local overrides', (
@@ -392,7 +487,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets(
-    'Android nav bar collapses down and expands up or after idle',
+    'Android nav bar uses an upward threshold and expands after idle',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -411,6 +506,7 @@ void main() {
                       const LiquidGlassNavBarScrollConfiguration(
                     collapsedScale: 0.7,
                     collapseThreshold: 1,
+                    expandThreshold: 12,
                     animationDuration: Duration.zero,
                     idleExpandDuration: Duration(seconds: 5),
                   ),
@@ -432,7 +528,11 @@ void main() {
       await tester.pump();
       expect(scale(), 0.7);
 
-      await downwardScroll.moveBy(const Offset(0, 20));
+      await downwardScroll.moveBy(const Offset(0, 6));
+      await tester.pump();
+      expect(scale(), 0.7);
+
+      await downwardScroll.moveBy(const Offset(0, 8));
       await tester.pump();
       expect(scale(), 1);
       await downwardScroll.up();
@@ -659,4 +759,24 @@ BoxDecoration _glassDecorationUnder(WidgetTester tester, String key) {
       .map((container) => container.decoration)
       .whereType<BoxDecoration>()
       .singleWhere((decoration) => decoration.gradient != null);
+}
+
+bool _hasFallbackShadow(WidgetTester tester) {
+  return tester
+      .widgetList<DecoratedBox>(
+        find.descendant(
+          of: find.byType(FallbackGlass),
+          matching: find.byType(DecoratedBox),
+        ),
+      )
+      .map((box) => box.decoration)
+      .whereType<BoxDecoration>()
+      .any((decoration) => decoration.boxShadow?.isNotEmpty ?? false);
+}
+
+bool _backdropFiltersEnabled(WidgetTester tester) {
+  final filters = tester.widgetList<BackdropFilter>(
+    find.byType(BackdropFilter),
+  );
+  return filters.isNotEmpty && filters.every((filter) => filter.enabled);
 }

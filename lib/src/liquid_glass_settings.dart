@@ -16,7 +16,7 @@ class LiquidGlassSettings {
     this.tintColor,
     this.tintOpacity = 0.15,
     this.blurSigma = 20.0,
-    this.androidBlurSigma = 12.0,
+    this.androidBlurSigma = 8.0,
     this.borderOpacity = 0.25,
     this.borderWidth = 1.0,
     this.shadowOpacity = 0.12,
@@ -80,7 +80,7 @@ class LiquidGlassSettings {
     tintColor: Color(0xFF1C1C1E),
     tintOpacity: 0.72,
     blurSigma: 24,
-    androidBlurSigma: 10,
+    androidBlurSigma: 8,
     borderOpacity: 0.18,
     shadowOpacity: 0.20,
   );

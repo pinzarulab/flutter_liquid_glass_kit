@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -38,6 +39,7 @@ class FallbackGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final performance = _BackdropPerformanceScope.maybeOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final highContrast = MediaQuery.highContrastOf(context);
     final tint = settings.tintColor ??
@@ -89,26 +91,35 @@ class FallbackGlass extends StatelessWidget {
         : _SharedBackdropFilter(
             sigma: blurSigma,
             enabled: useSharedBackdrop,
+            blurDisabled: performance?.blurDisabled ?? false,
             child: glassContent,
           );
 
+    final shadowEnabled =
+        !(performance?.shadowsDisabled ?? false) && settings.shadowOpacity > 0;
     return RepaintBoundary(
-      child: Container(
-        width: width,
-        height: height,
+      child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: borderRadius,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: settings.shadowOpacity),
-              blurRadius: settings.shadowBlurRadius,
-              offset: settings.shadowOffset,
-            ),
-          ],
+          boxShadow: shadowEnabled
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: settings.shadowOpacity,
+                    ),
+                    blurRadius: settings.shadowBlurRadius,
+                    offset: settings.shadowOffset,
+                  ),
+                ]
+              : const [],
         ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: filteredContent,
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: ClipRRect(
+            borderRadius: borderRadius,
+            child: filteredContent,
+          ),
         ),
       ),
     );
@@ -125,8 +136,8 @@ class FallbackGlass extends StatelessWidget {
 /// pages can overlap while moving, which can make grouped backdrop filters
 /// sample the wrong backdrop and visibly change color during the transition.
 ///
-/// Native iOS surfaces each use their own SwiftUI `GlassEffectContainer`.
-/// Separate Flutter platform views cannot share one native morphing namespace.
+/// Native iOS surfaces are separate Flutter platform views, so they cannot
+/// share one SwiftUI `GlassEffectContainer` or native morphing namespace.
 class LiquidGlassBackdropGroup extends StatefulWidget {
   /// Creates a shared backdrop and optional settings boundary around [child].
   ///
@@ -137,6 +148,8 @@ class LiquidGlassBackdropGroup extends StatefulWidget {
     required this.child,
     this.settings,
     this.disableBlurWhileScrolling = true,
+    this.disableShadowsWhileScrolling = true,
+    this.effectRestoreDelay = const Duration(milliseconds: 80),
   });
 
   /// Subtree containing the glass surfaces and, commonly, its scrollable.
@@ -154,6 +167,17 @@ class LiquidGlassBackdropGroup extends StatefulWidget {
   /// work. The blur is restored as soon as scrolling settles.
   final bool disableBlurWhileScrolling;
 
+  /// Whether fallback drop shadows are temporarily removed during scrolling.
+  ///
+  /// Blurred shadows create an additional GPU filter for every surface.
+  final bool disableShadowsWhileScrolling;
+
+  /// Delay after scrolling ends before disabled blur and shadows are restored.
+  ///
+  /// A short delay prevents expensive effects from being recreated between
+  /// closely spaced drag and ballistic-scroll notifications.
+  final Duration effectRestoreDelay;
+
   @override
   State<LiquidGlassBackdropGroup> createState() =>
       _LiquidGlassBackdropGroupState();
@@ -161,18 +185,49 @@ class LiquidGlassBackdropGroup extends StatefulWidget {
 
 class _LiquidGlassBackdropGroupState extends State<LiquidGlassBackdropGroup> {
   final BackdropKey _backdropKey = BackdropKey();
+  Timer? _effectRestoreTimer;
   bool _isScrolling = false;
 
+  bool get _hasScrollOptimizations =>
+      widget.disableBlurWhileScrolling || widget.disableShadowsWhileScrolling;
+
   bool _handleScrollNotification(ScrollNotification notification) {
-    final isScrolling = switch (notification) {
-      ScrollStartNotification() => true,
-      ScrollEndNotification() => false,
-      _ => _isScrolling,
-    };
-    if (_isScrolling != isScrolling) {
-      setState(() => _isScrolling = isScrolling);
+    if (!_hasScrollOptimizations) return false;
+    if (notification is ScrollStartNotification) {
+      _effectRestoreTimer?.cancel();
+      if (!_isScrolling) setState(() => _isScrolling = true);
+    } else if (notification is ScrollEndNotification && _isScrolling) {
+      _effectRestoreTimer?.cancel();
+      if (widget.effectRestoreDelay == Duration.zero) {
+        setState(() => _isScrolling = false);
+      } else {
+        _effectRestoreTimer = Timer(widget.effectRestoreDelay, () {
+          if (mounted && _isScrolling) {
+            setState(() => _isScrolling = false);
+          }
+        });
+      }
     }
     return false;
+  }
+
+  @override
+  void didUpdateWidget(covariant LiquidGlassBackdropGroup oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_hasScrollOptimizations) {
+      _effectRestoreTimer?.cancel();
+      _isScrolling = false;
+    } else if (oldWidget.effectRestoreDelay != widget.effectRestoreDelay &&
+        _effectRestoreTimer?.isActive == true) {
+      _effectRestoreTimer?.cancel();
+      _isScrolling = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _effectRestoreTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -189,6 +244,7 @@ class _LiquidGlassBackdropGroupState extends State<LiquidGlassBackdropGroup> {
         backdropKey: _backdropKey,
         child: _BackdropPerformanceScope(
           blurDisabled: widget.disableBlurWhileScrolling && _isScrolling,
+          shadowsDisabled: widget.disableShadowsWhileScrolling && _isScrolling,
           child: scopedChild,
         ),
       ),
@@ -219,11 +275,13 @@ class _SharedBackdropFilter extends StatefulWidget {
   const _SharedBackdropFilter({
     required this.sigma,
     required this.enabled,
+    required this.blurDisabled,
     required this.child,
   });
 
   final double sigma;
   final bool enabled;
+  final bool blurDisabled;
   final Widget child;
 
   @override
@@ -244,33 +302,39 @@ class _SharedBackdropFilterState extends State<_SharedBackdropFilter> {
 
   @override
   Widget build(BuildContext context) {
-    if (_BackdropPerformanceScope.blurDisabledOf(context)) {
-      return widget.child;
-    }
     if (widget.enabled && BackdropGroup.of(context) != null) {
-      return BackdropFilter.grouped(filter: _filter, child: widget.child);
+      return BackdropFilter.grouped(
+        filter: _filter,
+        enabled: !widget.blurDisabled,
+        child: widget.child,
+      );
     }
-    return BackdropFilter(filter: _filter, child: widget.child);
+    return BackdropFilter(
+      filter: _filter,
+      enabled: !widget.blurDisabled,
+      child: widget.child,
+    );
   }
 }
 
 class _BackdropPerformanceScope extends InheritedWidget {
   const _BackdropPerformanceScope({
     required this.blurDisabled,
+    required this.shadowsDisabled,
     required super.child,
   });
 
   final bool blurDisabled;
+  final bool shadowsDisabled;
 
-  static bool blurDisabledOf(BuildContext context) {
+  static _BackdropPerformanceScope? maybeOf(BuildContext context) {
     return context
-            .dependOnInheritedWidgetOfExactType<_BackdropPerformanceScope>()
-            ?.blurDisabled ??
-        false;
+        .dependOnInheritedWidgetOfExactType<_BackdropPerformanceScope>();
   }
 
   @override
   bool updateShouldNotify(_BackdropPerformanceScope oldWidget) {
-    return blurDisabled != oldWidget.blurDisabled;
+    return blurDisabled != oldWidget.blurDisabled ||
+        shadowsDisabled != oldWidget.shadowsDisabled;
   }
 }

@@ -85,7 +85,7 @@ class LiquidGlassSurfaceView: NSObject, FlutterPlatformView {
 
   private func setupGlassView(frame: CGRect, args: [String: Any]?) {
     let radii = LiquidGlassCornerRadii(arguments: args)
-    let tintOpacity = (args?["tintOpacity"] as? NSNumber)?.doubleValue ?? 0.15
+    let tintOpacity = liquidGlassUnitValue(args?["tintOpacity"], fallback: 0.15)
     let tintHex = args?["tintColorHex"] as? String
     let rootView: AnyView
 
@@ -171,12 +171,11 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
     tabBar.layer.borderWidth = 0
     tabBar.layer.shadowOpacity = 0
 
-    if let scale = args?["scrollCollapseScale"] as? Double {
-      scrollCollapseScale = min(max(CGFloat(scale), 0.01), 1)
-    }
-    if let duration = args?["scrollAnimationDurationMillis"] as? Int {
-      scrollAnimationDuration = max(Double(duration) / 1000, 0)
-    }
+    scrollCollapseScale = CGFloat(
+      min(max(liquidGlassFiniteNumber(args?["scrollCollapseScale"], fallback: 0.82), 0.01), 1)
+    )
+    scrollAnimationDuration =
+      liquidGlassNonnegativeValue(args?["scrollAnimationDurationMillis"], fallback: 280) / 1000
 
     applyAppearance(args: args)
     applyItems(args: args)
@@ -208,12 +207,11 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
       case "setCollapsed":
         if let configuration = call.arguments as? [String: Any] {
           let collapsed = configuration["collapsed"] as? Bool ?? false
-          if let scale = configuration["scale"] as? Double {
-            self.scrollCollapseScale = min(max(CGFloat(scale), 0.01), 1)
-          }
-          if let duration = configuration["durationMillis"] as? Int {
-            self.scrollAnimationDuration = max(Double(duration) / 1000, 0)
-          }
+          self.scrollCollapseScale = CGFloat(
+            min(max(liquidGlassFiniteNumber(configuration["scale"], fallback: 0.82), 0.01), 1)
+          )
+          self.scrollAnimationDuration =
+            liquidGlassNonnegativeValue(configuration["durationMillis"], fallback: 280) / 1000
           self.setCollapsed(collapsed, animated: true)
         } else if let collapsed = call.arguments as? Bool {
           self.setCollapsed(collapsed, animated: true)
@@ -229,12 +227,17 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
   private func applyAppearance(args: [String: Any]?) {
     let tintColor = liquidGlassColor(from: args?["tintColorHex"] as? String ?? "#FF000000")
-    let requestedTintOpacity = CGFloat(args?["tintOpacity"] as? Double ?? 0.26)
+    let requestedTintOpacity = CGFloat(
+      liquidGlassUnitValue(args?["tintOpacity"], fallback: 0.26)
+    )
     let highContrast = UIAccessibility.isDarkerSystemColorsEnabled
     let reduceTransparency = UIAccessibility.isReduceTransparencyEnabled
-    let tintOpacity = reduceTransparency
-      ? max(requestedTintOpacity, 0.82)
-      : min(1, requestedTintOpacity + (highContrast ? 0.20 : 0))
+    let tintOpacity = min(
+      1,
+      reduceTransparency
+        ? max(requestedTintOpacity, 0.82)
+        : requestedTintOpacity + (highContrast ? 0.20 : 0)
+    )
     let activeColor = liquidGlassColor(from: args?["activeColorHex"] as? String ?? "#FFFFFFFF")
     let inactiveColor = liquidGlassColor(from: args?["inactiveColorHex"] as? String ?? "#99FFFFFF")
 
@@ -410,6 +413,22 @@ private func liquidGlassColor(from hex: String) -> UIColor {
   return UIColor(red: red, green: green, blue: blue, alpha: alpha)
 }
 
+private func liquidGlassFiniteNumber(_ value: Any?, fallback: Double) -> Double {
+  guard let number = value as? NSNumber else {
+    return fallback
+  }
+  let candidate = number.doubleValue
+  return candidate.isFinite ? candidate : fallback
+}
+
+private func liquidGlassUnitValue(_ value: Any?, fallback: Double) -> Double {
+  min(max(liquidGlassFiniteNumber(value, fallback: fallback), 0), 1)
+}
+
+private func liquidGlassNonnegativeValue(_ value: Any?, fallback: Double) -> Double {
+  max(liquidGlassFiniteNumber(value, fallback: fallback), 0)
+}
+
 // MARK: - SwiftUI Surfaces
 
 struct LiquidGlassCornerRadii {
@@ -420,7 +439,7 @@ struct LiquidGlassCornerRadii {
 
   init(arguments: [String: Any]?) {
     func radius(_ key: String) -> CGFloat {
-      CGFloat((arguments?[key] as? NSNumber)?.doubleValue ?? 24)
+      CGFloat(liquidGlassNonnegativeValue(arguments?[key], fallback: 24))
     }
     topLeft = radius("topLeftRadius")
     topRight = radius("topRightRadius")
@@ -499,7 +518,7 @@ struct LegacyLiquidGlassSurface: View {
   }
 
   private var effectiveTintOpacity: Double {
-    min(1, tintOpacity + (contrast == .increased ? 0.20 : 0))
+    min(max(tintOpacity + (contrast == .increased ? 0.20 : 0), 0), 1)
   }
 
   var body: some View {
@@ -537,7 +556,7 @@ struct LiquidGlassSurface: View {
   }
 
   private var effectiveTintOpacity: Double {
-    min(1, tintOpacity + (contrast == .increased ? 0.20 : 0))
+    min(max(tintOpacity + (contrast == .increased ? 0.20 : 0), 0), 1)
   }
 
   var body: some View {
@@ -552,15 +571,13 @@ struct LiquidGlassSurface: View {
           )
         )
     } else {
-      GlassEffectContainer {
-        Color.clear
-          .glassEffect(
-            Glass.clear
-              .tint(tintColor.opacity(effectiveTintOpacity))
-              .interactive(!reduceMotion),
-            in: shape
-          )
-      }
+      Color.clear
+        .glassEffect(
+          Glass.clear
+            .tint(tintColor.opacity(effectiveTintOpacity))
+            .interactive(!reduceMotion),
+          in: shape
+        )
     }
   }
 }

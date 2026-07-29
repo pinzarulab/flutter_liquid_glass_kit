@@ -48,6 +48,27 @@ A null `onPressed` disables the button. `isLoading: true` also disables taps and
 replaces the child with a progress indicator. Use `pressScaleFactor` and
 `animationDuration` to customize press feedback.
 
+### Text field
+
+```dart
+LiquidGlassTextField(
+  controller: nameController,
+  decoration: const InputDecoration(
+    hintText: 'Name',
+    prefixIcon: Icon(Icons.person_outline),
+  ),
+  textInputAction: TextInputAction.next,
+  autofillHints: const [AutofillHints.name],
+  onSubmitted: saveName,
+)
+```
+
+The editable field remains a Flutter `TextField`, while its background uses
+native SwiftUI glass on iOS and the optimized fallback elsewhere. This keeps
+Flutter controllers, focus nodes, formatters, selection, autofill, and keyboard
+behavior available without a second native text-input bridge. Provide borders
+through `decoration` when needed; otherwise the glass outline is used.
+
 ### Navigation bar
 
 `LiquidGlassNavBar` is a normal layout widget. It is controlled: update
@@ -107,8 +128,8 @@ and labels preview the item under the indicator, but navigation occurs only
 after release. Cancelling restores the current item.
 
 iOS and Android can optionally shrink the bar while a vertical scrollable
-moves down, then restore it as soon as scrolling moves up or after an idle
-delay. One configuration applies to both platforms:
+moves down, then restore it after enough upward movement or an idle delay. One
+configuration applies to both platforms:
 
 ```dart
 LiquidGlassNavBar(
@@ -117,6 +138,7 @@ LiquidGlassNavBar(
   scrollConfiguration: const LiquidGlassNavBarScrollConfiguration(
     collapsedScale: 0.82,
     collapseThreshold: 12,
+    expandThreshold: 12,
     animationDuration: Duration(milliseconds: 280),
     idleExpandDuration: Duration(seconds: 5),
   ),
@@ -144,16 +166,17 @@ common Material icons.
 ## Native iOS fidelity
 
 Native surfaces preserve all four Flutter corner radii. On iOS 26 each surface
-is rendered inside a SwiftUI `GlassEffectContainer`; Reduce Transparency
-replaces blur with a strong opaque tint, Increase Contrast strengthens tint and
-borders, and Reduce Motion disables interactive glass and nav spring motion.
-iOS 16-25 uses the same per-corner shape and accessibility adaptations with
-system material.
+uses SwiftUI `glassEffect` directly; Reduce Transparency replaces blur with a
+strong opaque tint, Increase Contrast strengthens tint and borders, and Reduce
+Motion disables interactive glass and nav spring motion. iOS 16-25 uses the
+same per-corner shape and accessibility adaptations with system material.
 
-Each `PlatformGlass` is a separate `UiKitView`, so its
-`GlassEffectContainer` cannot merge or morph with containers hosted by sibling
-platform views. True cross-widget morphing requires a future single native host
-that receives all Flutter surface geometries.
+Each `PlatformGlass` is a separate `UiKitView`, so sibling surfaces cannot
+share one `GlassEffectContainer` or native morphing namespace. Wrapping each
+isolated view in its own container adds rendering work without enabling
+grouping, so the package deliberately avoids that. True cross-widget morphing
+requires a future single native host that receives all Flutter surface
+geometries.
 
 ## Shared settings
 
@@ -203,7 +226,7 @@ const LiquidGlassCard(
 | `tintColor` | `null` | Custom surface color. Null selects an adaptive matte tint on the fallback. |
 | `tintOpacity` | `0.15` | Tint strength from `0.0` to `1.0`. Saturated colors usually work well at `0.20-0.40`. |
 | `blurSigma` | `20` | Requested backdrop blur. Forwarded to native iOS and capped on Android. |
-| `androidBlurSigma` | `12` | Maximum Android blur. Set to `0` for a fast matte-only surface. |
+| `androidBlurSigma` | `8` | Maximum Android blur. Set to `0` for a fast matte-only surface. |
 | `borderOpacity` | `0.25` | Fallback border-highlight opacity. |
 | `borderWidth` | `1` | Fallback border width in logical pixels. |
 | `shadowOpacity` | `0.12` | Fallback drop-shadow opacity. Set to `0` on dense screens to reduce paint cost. |
@@ -229,11 +252,14 @@ const LiquidGlassSettings(
 
 Wrap scrollable sections containing several non-overlapping glass surfaces in
 `LiquidGlassBackdropGroup`. It shares backdrop input and, by default, pauses
-blur while scrolling while preserving tint, border, and content:
+blur and blurred shadows while scrolling while preserving tint, border, and
+content:
 
 ```dart
 LiquidGlassBackdropGroup(
   disableBlurWhileScrolling: true,
+  disableShadowsWhileScrolling: true,
+  effectRestoreDelay: Duration(milliseconds: 80),
   child: ListView.builder(
     itemCount: items.length,
     itemBuilder: (context, index) => LiquidGlassCard(
@@ -243,8 +269,10 @@ LiquidGlassBackdropGroup(
 )
 ```
 
-Set `disableBlurWhileScrolling: false` to keep blur active during motion. Other
-useful optimizations:
+The short restore delay prevents expensive effects from being recreated
+between closely spaced scroll notifications. Set either disable flag to
+`false` to keep that effect active during motion, or set `effectRestoreDelay`
+to `Duration.zero` for immediate restoration. Other useful optimizations:
 
 - Lower `androidBlurSigma` to `6-8`, or `0` for matte-only rendering.
 - Reduce `shadowBlurRadius` or set `shadowOpacity` to `0` in long lists.
