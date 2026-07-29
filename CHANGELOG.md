@@ -1,3 +1,9 @@
+## 1.3.0
+
+- Stretch the Android navigation indicator vertically in response to horizontal drag speed, with a short decay when movement pauses.
+- Add `liquid`, `elastic`, `pulse`, and `smooth` Android navigation animation styles.
+- Add `LiquidGlassNavBarAnimationResolver` and `LiquidGlassNavBarAnimationState` for custom indicator geometry.
+
 ## 1.2.1
 
 - Clamp native iOS colour components and render iOS 26 surfaces with `glassEffect` directly to reduce drawable pressure.

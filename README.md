@@ -125,7 +125,45 @@ handles it.
 
 On the Flutter fallback, users can hold and drag the selection indicator. Icons
 and labels preview the item under the indicator, but navigation occurs only
-after release. Cancelling restores the current item.
+after release. Cancelling restores the current item. During horizontal dragging,
+the indicator stretches vertically in proportion to finger speed and relaxes
+when movement pauses.
+
+Choose a built-in Android indicator animation:
+
+```dart
+LiquidGlassNavBar(
+  currentIndex: currentIndex,
+  onTap: onTap,
+  androidAnimationStyle: LiquidGlassNavBarAnimationStyle.elastic,
+  items: items,
+)
+```
+
+Available styles are `liquid`, `elastic`, `pulse`, and `smooth`. The value can
+be changed at runtime like any other widget property. For complete control,
+provide a geometry resolver:
+
+```dart
+LiquidGlassNavBar(
+  currentIndex: currentIndex,
+  onTap: onTap,
+  androidAnimationResolver: (state) {
+    final speed = (state.dragSpeed / 1800).clamp(0.0, 1.0);
+    return Rect.fromCenter(
+      center: Offset(state.center, state.dockHeight / 2),
+      width: state.restingRect.width + 12 * state.holdProgress,
+      height: state.restingRect.height + 24 * speed,
+    );
+  },
+  items: items,
+)
+```
+
+The resolver receives transition progress, hold progress, signed drag velocity,
+item dimensions, travel distance, and resting geometry. Keep it fast and free
+of side effects because it runs every animation frame. These options affect the
+Flutter/Android indicator; native iOS continues using its system animation.
 
 iOS and Android can optionally shrink the bar while a vertical scrollable
 moves down, then restore it after enough upward movement or an idle delay. One

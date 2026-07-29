@@ -8,6 +8,85 @@ import 'package:flutter/services.dart';
 import 'liquid_glass_settings.dart';
 import 'platform_glass.dart';
 
+/// Built-in motion styles for the Android navigation indicator.
+enum LiquidGlassNavBarAnimationStyle {
+  /// Liquid vertical stretching based on travel distance and drag speed.
+  liquid,
+
+  /// A wider, spring-like blob with a pronounced velocity response.
+  elastic,
+
+  /// A balanced width-and-height pulse around the selected item.
+  pulse,
+
+  /// Restrained movement with minimal shape distortion.
+  smooth,
+}
+
+/// Resolves the Android navigation indicator geometry for one animation frame.
+///
+/// Return a rectangle in the navigation bar's local coordinate system. The
+/// callback must be fast and free of side effects because it runs every frame.
+typedef LiquidGlassNavBarAnimationResolver = Rect Function(
+  LiquidGlassNavBarAnimationState state,
+);
+
+/// Inputs available to a custom Android navigation indicator animation.
+@immutable
+class LiquidGlassNavBarAnimationState {
+  /// Creates an immutable indicator animation snapshot.
+  const LiquidGlassNavBarAnimationState({
+    required this.restingRect,
+    required this.center,
+    required this.fromCenter,
+    required this.toCenter,
+    required this.itemWidth,
+    required this.dockHeight,
+    required this.transitionProgress,
+    required this.holdProgress,
+    required this.dragVelocity,
+    required this.isDragging,
+  });
+
+  /// Resting indicator rectangle at [center].
+  final Rect restingRect;
+
+  /// Default eased horizontal center for this frame.
+  final double center;
+
+  /// Horizontal center at the start of a programmatic transition.
+  final double fromCenter;
+
+  /// Horizontal center at the end of a programmatic transition.
+  final double toCenter;
+
+  /// Width allocated to one navigation item.
+  final double itemWidth;
+
+  /// Height of the navigation bar.
+  final double dockHeight;
+
+  /// Raw transition progress from `0.0` to `1.0`.
+  final double transitionProgress;
+
+  /// Hold expansion progress from `0.0` to `1.0`.
+  final double holdProgress;
+
+  /// Signed horizontal drag velocity in logical pixels per second.
+  ///
+  /// Positive values move right and negative values move left.
+  final double dragVelocity;
+
+  /// Whether the user is currently dragging or holding the indicator.
+  final bool isDragging;
+
+  /// Absolute horizontal travel distance for a programmatic transition.
+  double get travelDistance => (toCenter - fromCenter).abs();
+
+  /// Absolute drag speed in logical pixels per second.
+  double get dragSpeed => dragVelocity.abs();
+}
+
 /// A platform-adaptive glass bottom navigation bar.
 ///
 /// This is a normal layout widget, suitable for `Scaffold.bottomNavigationBar`
@@ -49,6 +128,8 @@ class LiquidGlassNavBar extends StatelessWidget {
     this.inactiveColor = const Color(0x99FFFFFF),
     this.indicatorColor = const Color(0x33FFFFFF),
     this.showLabels = true,
+    this.androidAnimationStyle = LiquidGlassNavBarAnimationStyle.liquid,
+    this.androidAnimationResolver,
     this.scrollConfiguration,
     this.iosScrollConfiguration,
     this.androidScrollConfiguration,
@@ -96,6 +177,17 @@ class LiquidGlassNavBar extends StatelessWidget {
   /// Whether labels are displayed below icons on both renderers.
   final bool showLabels;
 
+  /// Built-in Android indicator animation.
+  ///
+  /// Ignored when [androidAnimationResolver] is supplied.
+  final LiquidGlassNavBarAnimationStyle androidAnimationStyle;
+
+  /// Optional custom Android indicator geometry resolver.
+  ///
+  /// This callback takes precedence over [androidAnimationStyle]. It is ignored
+  /// by the native iOS renderer.
+  final LiquidGlassNavBarAnimationResolver? androidAnimationResolver;
+
   /// Scroll-driven resizing shared by native iOS and Android.
   ///
   /// Platform overrides take precedence when supplied. When all three
@@ -137,6 +229,8 @@ class LiquidGlassNavBar extends StatelessWidget {
       inactiveColor: inactiveColor,
       indicatorColor: indicatorColor,
       showLabels: showLabels,
+      animationStyle: androidAnimationStyle,
+      animationResolver: androidAnimationResolver,
       scrollConfiguration:
           !kIsWeb && defaultTargetPlatform == TargetPlatform.android
               ? androidScrollConfiguration ?? scrollConfiguration
@@ -485,6 +579,8 @@ class _LiquidGlassDock extends StatefulWidget {
     required this.inactiveColor,
     required this.indicatorColor,
     required this.showLabels,
+    required this.animationStyle,
+    required this.animationResolver,
     required this.scrollConfiguration,
   });
 
@@ -498,6 +594,8 @@ class _LiquidGlassDock extends StatefulWidget {
   final Color inactiveColor;
   final Color indicatorColor;
   final bool showLabels;
+  final LiquidGlassNavBarAnimationStyle animationStyle;
+  final LiquidGlassNavBarAnimationResolver? animationResolver;
   final LiquidGlassNavBarScrollConfiguration? scrollConfiguration;
 
   @override
@@ -508,15 +606,20 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
     with TickerProviderStateMixin {
   late final AnimationController _controller;
   late final AnimationController _holdController;
+  late final AnimationController _velocityController;
   late final Listenable _indicatorAnimation;
   late final ValueNotifier<double?> _dragCenter;
   late final ValueNotifier<int?> _dragIndex;
   late double _fromPosition;
   late double _toPosition;
+  Duration? _lastDragTimestamp;
+  double? _lastDragCenter;
+  double _dragVelocity = 0;
   late final _NavBarScrollBehavior _scrollBehavior;
 
   static const _duration = Duration(milliseconds: 550);
   static const _holdDuration = Duration(milliseconds: 180);
+  static const _velocityDecayDuration = Duration(milliseconds: 160);
   static const double _holdWidthExpansion = 16;
   static const double _holdHeightExpansion = 14;
   // Long jumps briefly lift the indicator beyond the dock, like the native
@@ -537,9 +640,14 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
       duration: _holdDuration,
       reverseDuration: const Duration(milliseconds: 140),
     );
+    _velocityController = AnimationController(
+      vsync: this,
+      duration: _velocityDecayDuration,
+    )..value = 1;
     _indicatorAnimation = Listenable.merge([
       _controller,
       _holdController,
+      _velocityController,
       _dragCenter,
     ]);
     _scrollBehavior = _NavBarScrollBehavior(
@@ -576,7 +684,9 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
   // wherever the blob visually is right now instead of snapping back.
   double _currentBlobPosition() {
     if (!_controller.isAnimating) return _toPosition;
-    final t = Curves.easeOutCubic.transform(_controller.value);
+    final t = widget.animationResolver == null
+        ? _positionProgress(widget.animationStyle, _controller.value)
+        : Curves.easeOutCubic.transform(_controller.value);
     return _lerp(_fromPosition, _toPosition, t);
   }
 
@@ -592,16 +702,48 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
     return (center / itemWidth).floor().clamp(0, widget.items.length - 1);
   }
 
-  void _startDrag(double center, double itemWidth, double dockWidth) {
+  void _startDrag(
+    double center,
+    double itemWidth,
+    double dockWidth, {
+    Duration? sourceTimeStamp,
+  }) {
     _controller.stop();
     _holdController.forward();
     final clamped = _clampDragCenter(center, itemWidth, dockWidth);
+    _lastDragCenter = clamped;
+    _lastDragTimestamp = sourceTimeStamp;
+    _dragVelocity = 0;
+    _velocityController.value = 1;
     _dragIndex.value = _indexForCenter(clamped, itemWidth);
     _dragCenter.value = clamped;
   }
 
-  void _updateDrag(double center, double itemWidth, double dockWidth) {
+  void _updateDrag(
+    double center,
+    double itemWidth,
+    double dockWidth, {
+    Duration? sourceTimeStamp,
+  }) {
     final clamped = _clampDragCenter(center, itemWidth, dockWidth);
+    final previousCenter = _lastDragCenter;
+    if (previousCenter != null) {
+      final elapsed = sourceTimeStamp != null && _lastDragTimestamp != null
+          ? sourceTimeStamp - _lastDragTimestamp!
+          : null;
+      final seconds = elapsed != null && elapsed > Duration.zero
+          ? elapsed.inMicroseconds / Duration.microsecondsPerSecond
+          : 1 / 60;
+      final instantaneousVelocity =
+          ((clamped - previousCenter) / seconds).clamp(-2400.0, 2400.0);
+      _dragVelocity = _lerp(_dragVelocity, instantaneousVelocity, 0.55);
+      _velocityController
+        ..stop()
+        ..value = 0
+        ..forward();
+    }
+    _lastDragCenter = clamped;
+    _lastDragTimestamp = sourceTimeStamp;
     final index = _indexForCenter(clamped, itemWidth);
     if (index != _dragIndex.value) {
       HapticFeedback.selectionClick();
@@ -620,6 +762,12 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
     _toPosition = target.toDouble();
     _dragIndex.value = null;
     _dragCenter.value = null;
+    _lastDragCenter = null;
+    _lastDragTimestamp = null;
+    _dragVelocity = 0;
+    _velocityController
+      ..stop()
+      ..value = 1;
     _holdController.reverse();
     _controller
       ..value = 0
@@ -638,6 +786,7 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
     _scrollBehavior.dispose();
     _controller.dispose();
     _holdController.dispose();
+    _velocityController.dispose();
     _dragCenter.dispose();
     _dragIndex.dispose();
     super.dispose();
@@ -645,50 +794,93 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
 
   double _lerp(double a, double b, double t) => a + (b - a) * t;
 
-  /// Computes the current geometry of the liquid indicator.
-  ///
-  /// The center eases from [_fromPosition] to [_toPosition]. Independently, a
-  /// bell-shaped stretch factor (0 at start/end, peak at the midpoint)
-  /// grows the blob vertically, then settles back to the resting pill shape.
   Rect _blobRect(double itemWidth, double dockHeight) {
     final dragCenter = _dragCenter.value;
-    if (dragCenter != null) {
-      final restWidth = itemWidth - 8;
-      final restHeight = dockHeight - 8;
-      return Rect.fromCenter(
-        center: Offset(dragCenter, dockHeight / 2),
-        width: restWidth + _holdWidthExpansion * _holdController.value,
-        height: restHeight + _holdHeightExpansion * _holdController.value,
-      );
-    }
-
     final t = _controller.value;
-    final positionT = Curves.easeOutCubic.transform(t);
-
     final fromCenter = (_fromPosition + 0.5) * itemWidth;
     final toCenter = (_toPosition + 0.5) * itemWidth;
-    final center = _lerp(fromCenter, toCenter, positionT);
-
-    // Bell curve: 0 at t=0 and t=1, 1 at t=0.5.
-    final stretch = math.sin(math.pi * t);
-
-    // Scale the stretch by travel distance so an adjacent-tab tap doesn't
-    // balloon as dramatically as a jump across the whole dock.
-    final travel = (toCenter - fromCenter).abs();
-    final travelFactor = (travel / (itemWidth * 1.5)).clamp(0.65, 1.0);
-
+    final positionT = widget.animationResolver == null
+        ? _positionProgress(widget.animationStyle, t)
+        : Curves.easeOutCubic.transform(t);
+    final center = dragCenter ?? _lerp(fromCenter, toCenter, positionT);
     final restWidth = itemWidth - 8;
     final restHeight = dockHeight - 8;
+    final restingRect = Rect.fromCenter(
+      center: Offset(center, dockHeight / 2),
+      width: restWidth,
+      height: restHeight,
+    );
+    final velocityDecay =
+        1 - Curves.easeOutCubic.transform(_velocityController.value);
+    final state = LiquidGlassNavBarAnimationState(
+      restingRect: restingRect,
+      center: center,
+      fromCenter: dragCenter ?? fromCenter,
+      toCenter: dragCenter ?? toCenter,
+      itemWidth: itemWidth,
+      dockHeight: dockHeight,
+      transitionProgress: dragCenter == null ? t : 1,
+      holdProgress: _holdController.value,
+      dragVelocity: dragCenter == null ? 0 : _dragVelocity * velocityDecay,
+      isDragging: dragCenter != null,
+    );
+    return widget.animationResolver?.call(state) ??
+        _presetBlobRect(widget.animationStyle, state);
+  }
 
-    final width = restWidth + _holdWidthExpansion * _holdController.value;
-    final height = restHeight +
-        _maxVerticalStretch * stretch * travelFactor +
-        _holdHeightExpansion * _holdController.value;
+  double _positionProgress(
+    LiquidGlassNavBarAnimationStyle style,
+    double progress,
+  ) {
+    return switch (style) {
+      LiquidGlassNavBarAnimationStyle.liquid =>
+        Curves.easeOutCubic.transform(progress),
+      LiquidGlassNavBarAnimationStyle.elastic =>
+        Curves.easeOutBack.transform(progress),
+      LiquidGlassNavBarAnimationStyle.pulse =>
+        Curves.easeInOutCubic.transform(progress),
+      LiquidGlassNavBarAnimationStyle.smooth =>
+        Curves.easeInOut.transform(progress),
+    };
+  }
 
-    final left = center - width / 2;
-    final top = (dockHeight - height) / 2;
+  Rect _presetBlobRect(
+    LiquidGlassNavBarAnimationStyle style,
+    LiquidGlassNavBarAnimationState state,
+  ) {
+    final transitionPulse =
+        state.isDragging ? 0.0 : math.sin(math.pi * state.transitionProgress);
+    final travelFactor =
+        (state.travelDistance / (state.itemWidth * 1.5)).clamp(0.65, 1.0);
+    final speedFactor = (state.dragSpeed / 1800).clamp(0.0, 1.0);
+    final hold = state.holdProgress;
 
-    return Rect.fromLTWH(left, top, width, height);
+    final (widthExpansion, heightExpansion) = switch (style) {
+      LiquidGlassNavBarAnimationStyle.liquid => (
+          _holdWidthExpansion * hold + 4 * speedFactor,
+          _holdHeightExpansion * hold +
+              _maxVerticalStretch * transitionPulse * travelFactor +
+              22 * speedFactor,
+        ),
+      LiquidGlassNavBarAnimationStyle.elastic => (
+          20 * hold + 24 * transitionPulse + 10 * speedFactor,
+          12 * hold + 12 * transitionPulse * travelFactor + 28 * speedFactor,
+        ),
+      LiquidGlassNavBarAnimationStyle.pulse => (
+          14 * hold + 14 * transitionPulse + 6 * speedFactor,
+          14 * hold + 14 * transitionPulse + 18 * speedFactor,
+        ),
+      LiquidGlassNavBarAnimationStyle.smooth => (
+          10 * hold + 4 * transitionPulse,
+          8 * hold + 5 * transitionPulse + 10 * speedFactor,
+        ),
+    };
+
+    return Rect.fromCenter(
+      center: Offset(state.center, state.dockHeight / 2),
+      width: state.restingRect.width + widthExpansion,
+      height: state.restingRect.height + heightExpansion,
+    );
   }
 
   @override
@@ -733,11 +925,13 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
                       details.localPosition.dx,
                       itemWidth,
                       constraints.maxWidth,
+                      sourceTimeStamp: details.sourceTimeStamp,
                     ),
                     onHorizontalDragUpdate: (details) => _updateDrag(
                       details.localPosition.dx,
                       itemWidth,
                       constraints.maxWidth,
+                      sourceTimeStamp: details.sourceTimeStamp,
                     ),
                     onHorizontalDragEnd: (_) =>
                         _finishDrag(itemWidth, selectItem: true),

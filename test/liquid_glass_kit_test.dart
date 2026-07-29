@@ -632,6 +632,104 @@ void main() {
     expect(selectedIndex, 2);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
+  testWidgets('Android nav indicator stretches with horizontal drag speed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              LiquidGlassNavBar(
+                currentIndex: 0,
+                onTap: _noop,
+                items: _navItems,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final indicatorFinder =
+        find.byKey(const ValueKey('liquid-glass-nav-indicator'));
+    final restingRect = tester.getRect(indicatorFinder);
+    final gesture = await tester.startGesture(restingRect.center);
+    await gesture.moveBy(
+      const Offset(20, 0),
+      timeStamp: const Duration(milliseconds: 10),
+    );
+    await gesture.moveBy(
+      const Offset(60, 0),
+      timeStamp: const Duration(milliseconds: 20),
+    );
+    await tester.pump();
+
+    final fastRect = tester.getRect(indicatorFinder);
+    expect(fastRect.height, greaterThan(restingRect.height + 12));
+
+    await tester.pump(const Duration(milliseconds: 180));
+    final relaxedRect = tester.getRect(indicatorFinder);
+    expect(relaxedRect.height, lessThan(fastRect.height));
+
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('Android nav supports a custom indicator animation resolver', (
+    tester,
+  ) async {
+    LiquidGlassNavBarAnimationState? latestState;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              LiquidGlassNavBar(
+                currentIndex: 0,
+                onTap: _noop,
+                items: _navItems,
+                androidAnimationStyle: LiquidGlassNavBarAnimationStyle.elastic,
+                androidAnimationResolver: (state) {
+                  latestState = state;
+                  return Rect.fromCenter(
+                    center: Offset(state.center, state.dockHeight / 2),
+                    width: state.restingRect.width + 10,
+                    height: state.restingRect.height + 30,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final indicatorFinder =
+        find.byKey(const ValueKey('liquid-glass-nav-indicator'));
+    final initialRect = tester.getRect(indicatorFinder);
+    expect(initialRect.height, 86);
+
+    final gesture = await tester.startGesture(initialRect.center);
+    await gesture.moveBy(
+      const Offset(20, 0),
+      timeStamp: const Duration(milliseconds: 10),
+    );
+    await gesture.moveBy(
+      const Offset(50, 0),
+      timeStamp: const Duration(milliseconds: 20),
+    );
+    await tester.pump();
+
+    expect(latestState?.isDragging, isTrue);
+    expect(latestState?.dragVelocity, greaterThan(0));
+    expect(tester.getRect(indicatorFinder).height, 86);
+
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
   testWidgets('holding the Android nav indicator expands it', (tester) async {
     var selectedIndex = 0;
 
