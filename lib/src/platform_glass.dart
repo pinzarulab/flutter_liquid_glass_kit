@@ -40,9 +40,6 @@ class PlatformGlass extends StatelessWidget {
   final Widget child;
 
   /// Shape of the surface.
-  ///
-  /// Native iOS currently uses the top-left radius as its uniform corner
-  /// radius. The Flutter fallback supports the full [BorderRadius].
   final BorderRadius borderRadius;
   final LiquidGlassSettings? _settings;
 
@@ -108,7 +105,10 @@ class _NativeLiquidGlass extends StatelessWidget {
   final double? height;
 
   Map<String, dynamic> get _creationParams => {
-        'cornerRadius': borderRadius.topLeft.x,
+        'topLeftRadius': borderRadius.topLeft.x,
+        'topRightRadius': borderRadius.topRight.x,
+        'bottomRightRadius': borderRadius.bottomRight.x,
+        'bottomLeftRadius': borderRadius.bottomLeft.x,
         'tintColorHex': settings.tintColor != null
             ? '#${settings.tintColor!.toARGB32().toRadixString(16).padLeft(8, '0')}'
             : null,

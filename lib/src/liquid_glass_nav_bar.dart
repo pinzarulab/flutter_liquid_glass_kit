@@ -8,41 +8,33 @@ import 'package:flutter/services.dart';
 import 'liquid_glass_settings.dart';
 import 'platform_glass.dart';
 
-/// A floating glass bottom navigation bar.
+/// A platform-adaptive glass bottom navigation bar.
 ///
-/// Floats above the content, positioned from the safe area with
-/// [iosBottomPadding] on iOS and [bottomPadding] on other platforms. On iOS
-/// 26+ this renders via the native SwiftUI glass surface.
+/// This is a normal layout widget, suitable for `Scaffold.bottomNavigationBar`
+/// and custom shells. Use [LiquidGlassFloatingNavBar] to position it above
+/// content in a [Stack].
 ///
 /// ```dart
 /// Scaffold(
-///   body: Stack(
-///     children: [
-///       YourContent(),
-///       LiquidGlassNavBar(
-///         currentIndex: _index,
-///         onTap: (i) => setState(() => _index = i),
-///         items: [
-///           LiquidGlassNavItem(icon: Icons.home, label: 'Home'),
-///           LiquidGlassNavItem(icon: Icons.search, label: 'Search'),
-///           LiquidGlassNavItem(
-///             icon: Icons.person,
-///             label: 'Profile',
-///             androidIcon: CircleAvatar(child: Text('P')),
-///           ),
-///         ],
-///       ),
-///     ],
+///   bottomNavigationBar: SafeArea(
+///     minimum: EdgeInsets.all(16),
+///     child: LiquidGlassNavBar(
+///       currentIndex: _index,
+///       onTap: (i) => setState(() => _index = i),
+///       items: [
+///         LiquidGlassNavItem(icon: Icons.home, label: 'Home'),
+///         LiquidGlassNavItem(icon: Icons.search, label: 'Search'),
+///       ],
+///     ),
 ///   ),
 /// )
 /// ```
 class LiquidGlassNavBar extends StatelessWidget {
-  /// Creates a controlled floating navigation bar.
+  /// Creates a controlled navigation bar surface.
   ///
-  /// Place this widget as a child of a [Stack] because it returns a
-  /// [Positioned] surface. The selected item is controlled by [currentIndex];
-  /// [onTap] must update that value in the parent. On the Flutter fallback,
-  /// users can hold and drag the indicator to preview items before releasing.
+  /// The selected item is controlled by [currentIndex]; [onTap] must update
+  /// that value in the parent. On the Flutter fallback, users can hold and drag
+  /// the indicator to preview items before releasing.
   ///
   /// When `settings` is omitted, the nearest shared settings scope is used.
   const LiquidGlassNavBar({
@@ -52,23 +44,18 @@ class LiquidGlassNavBar extends StatelessWidget {
     required this.onTap,
     LiquidGlassSettings? settings,
     this.height = 64,
-    this.horizontalPadding = 20,
-    this.bottomPadding = 16,
-    this.iosBottomPadding = 8,
     this.borderRadius = const BorderRadius.all(Radius.circular(32)),
     this.activeColor = Colors.white,
     this.inactiveColor = const Color(0x99FFFFFF),
     this.indicatorColor = const Color(0x33FFFFFF),
     this.showLabels = true,
+    this.scrollConfiguration,
     this.iosScrollConfiguration,
     this.androidScrollConfiguration,
   })  : _settings = settings,
         assert(items.length > 1, 'A navigation bar needs at least two items.'),
         assert(currentIndex >= 0 && currentIndex < items.length),
-        assert(height > 0),
-        assert(horizontalPadding >= 0),
-        assert(bottomPadding >= 0),
-        assert(iosBottomPadding >= 0);
+        assert(height > 0);
 
   /// Items displayed from left to right.
   ///
@@ -94,17 +81,6 @@ class LiquidGlassNavBar extends StatelessWidget {
   /// Height of the navigation surface in logical pixels.
   final double height;
 
-  /// Horizontal inset from the containing [Stack]'s left and right edges.
-  final double horizontalPadding;
-
-  /// Additional spacing above the device safe-area bottom outside native iOS.
-  final double bottomPadding;
-
-  /// Additional spacing above the device safe-area bottom on native iOS.
-  ///
-  /// The smaller default accounts for the taller iOS home-indicator safe area.
-  final double iosBottomPadding;
-
   /// Shape of the fallback navigation surface.
   final BorderRadius borderRadius;
 
@@ -120,57 +96,99 @@ class LiquidGlassNavBar extends StatelessWidget {
   /// Whether labels are displayed below icons on both renderers.
   final bool showLabels;
 
-  /// Optional native iOS behavior that collapses the bar while scrolling down.
+  /// Scroll-driven resizing shared by native iOS and Android.
   ///
-  /// When null, scroll-driven resizing is disabled. This setting has no effect
-  /// on Android or other Flutter fallback platforms.
-  final LiquidGlassIOSNavBarScrollConfiguration? iosScrollConfiguration;
+  /// Platform overrides take precedence when supplied. When all three
+  /// configuration values are null, scroll-driven resizing is disabled.
+  final LiquidGlassNavBarScrollConfiguration? scrollConfiguration;
 
-  /// Optional Android behavior that collapses the bar while scrolling down.
-  ///
-  /// When null, scroll-driven resizing is disabled. This setting has no effect
-  /// on iOS, web, desktop, or other Flutter fallback platforms.
-  final LiquidGlassAndroidNavBarScrollConfiguration? androidScrollConfiguration;
+  /// Optional native iOS override for [scrollConfiguration].
+  final LiquidGlassNavBarScrollConfiguration? iosScrollConfiguration;
+
+  /// Optional Android override for [scrollConfiguration].
+  final LiquidGlassNavBarScrollConfiguration? androidScrollConfiguration;
 
   @override
   Widget build(BuildContext context) {
     final effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
     final isNativeIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
-    final navBar = isNativeIOS
-        ? _NativeIOSNavBar(
-            items: items,
-            currentIndex: currentIndex,
-            onTap: onTap,
-            height: height,
-            settings: effectiveSettings,
-            activeColor: activeColor,
-            inactiveColor: inactiveColor,
-            indicatorColor: indicatorColor,
-            showLabels: showLabels,
-            scrollConfiguration: iosScrollConfiguration,
-          )
-        : _LiquidGlassDock(
-            items: items,
-            currentIndex: currentIndex,
-            onTap: onTap,
-            height: height,
-            settings: effectiveSettings,
-            borderRadius: borderRadius,
-            activeColor: activeColor,
-            inactiveColor: inactiveColor,
-            indicatorColor: indicatorColor,
-            showLabels: showLabels,
-            scrollConfiguration:
-                !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-                    ? androidScrollConfiguration
-                    : null,
-          );
+    if (isNativeIOS) {
+      return _NativeIOSNavBar(
+        items: items,
+        currentIndex: currentIndex,
+        onTap: onTap,
+        height: height,
+        settings: effectiveSettings,
+        activeColor: activeColor,
+        inactiveColor: inactiveColor,
+        indicatorColor: indicatorColor,
+        showLabels: showLabels,
+        scrollConfiguration: iosScrollConfiguration ?? scrollConfiguration,
+      );
+    }
+    return _LiquidGlassDock(
+      items: items,
+      currentIndex: currentIndex,
+      onTap: onTap,
+      height: height,
+      settings: effectiveSettings,
+      borderRadius: borderRadius,
+      activeColor: activeColor,
+      inactiveColor: inactiveColor,
+      indicatorColor: indicatorColor,
+      showLabels: showLabels,
+      scrollConfiguration:
+          !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+              ? androidScrollConfiguration ?? scrollConfiguration
+              : null,
+    );
+  }
+}
 
+/// Positions a [LiquidGlassNavBar] above content in a [Stack].
+///
+/// The wrapper owns horizontal insets and safe-area-aware bottom placement,
+/// while the child remains reusable in normal layouts.
+class LiquidGlassFloatingNavBar extends StatelessWidget {
+  /// Creates a floating placement wrapper for [child].
+  const LiquidGlassFloatingNavBar({
+    super.key,
+    required this.child,
+    this.horizontalPadding = 20,
+    this.bottomPadding = 16,
+    this.iosBottomPadding = 0,
+    this.respectSafeArea = true,
+  })  : assert(horizontalPadding >= 0),
+        assert(bottomPadding >= 0),
+        assert(iosBottomPadding >= 0);
+
+  /// Navigation bar surface to position.
+  final LiquidGlassNavBar child;
+
+  /// Horizontal inset from the containing [Stack].
+  final double horizontalPadding;
+
+  /// Spacing above the safe area on Android and other fallback platforms.
+  final double bottomPadding;
+
+  /// Spacing above the safe area on native iOS.
+  ///
+  /// iOS defaults to zero because its home-indicator safe area is already tall.
+  final double iosBottomPadding;
+
+  /// Whether to include the device's bottom safe-area inset.
+  final bool respectSafeArea;
+
+  @override
+  Widget build(BuildContext context) {
+    final isNativeIOS = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final safeBottom =
+        respectSafeArea ? MediaQuery.paddingOf(context).bottom : 0.0;
     return Positioned(
       left: horizontalPadding,
       right: horizontalPadding,
-      bottom: isNativeIOS ? iosBottomPadding : bottomPadding,
-      child: navBar,
+      bottom: safeBottom + (isNativeIOS ? iosBottomPadding : bottomPadding),
+      child: child,
     );
   }
 }
@@ -198,7 +216,7 @@ class _NativeIOSNavBar extends StatefulWidget {
   final Color inactiveColor;
   final Color indicatorColor;
   final bool showLabels;
-  final LiquidGlassIOSNavBarScrollConfiguration? scrollConfiguration;
+  final LiquidGlassNavBarScrollConfiguration? scrollConfiguration;
 
   @override
   State<_NativeIOSNavBar> createState() => _NativeIOSNavBarState();
@@ -206,10 +224,7 @@ class _NativeIOSNavBar extends StatefulWidget {
 
 class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
   MethodChannel? _channel;
-  ScrollNotificationObserverState? _scrollObserver;
-  Timer? _idleExpandTimer;
-  bool _isCollapsed = false;
-  double _accumulatedDownwardScroll = 0;
+  late final _NavBarScrollBehavior _scrollBehavior;
 
   Map<String, dynamic> get _creationParams => {
         'items': [
@@ -236,9 +251,17 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
       };
 
   @override
+  void initState() {
+    super.initState();
+    _scrollBehavior = _NavBarScrollBehavior(
+      onCollapsedChanged: (_) => _sendCollapsedState(),
+    );
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _attachScrollObserver();
+    _scrollBehavior.update(context, widget.scrollConfiguration);
   }
 
   @override
@@ -246,79 +269,18 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentIndex != widget.currentIndex) {
       _channel?.invokeMethod<void>('setCurrentIndex', widget.currentIndex);
-      _expandImmediately();
+      _scrollBehavior.expand();
     }
     if (oldWidget.scrollConfiguration != widget.scrollConfiguration) {
-      _attachScrollObserver();
-      if (widget.scrollConfiguration == null) {
-        _expandImmediately();
-      } else {
-        _sendCollapsedState();
-      }
+      _scrollBehavior.update(context, widget.scrollConfiguration);
+      _sendCollapsedState();
     }
-  }
-
-  void _attachScrollObserver() {
-    _scrollObserver?.removeListener(_handleScrollNotification);
-    _scrollObserver = null;
-    if (widget.scrollConfiguration == null) return;
-    _scrollObserver = ScrollNotificationObserver.maybeOf(context);
-    _scrollObserver?.addListener(_handleScrollNotification);
-  }
-
-  void _handleScrollNotification(ScrollNotification notification) {
-    final configuration = widget.scrollConfiguration;
-    if (configuration == null || notification.metrics.axis != Axis.vertical) {
-      return;
-    }
-    if (notification is! ScrollUpdateNotification) return;
-
-    final metrics = notification.metrics;
-    final delta = notification.scrollDelta ?? 0;
-    if (metrics.pixels <= metrics.minScrollExtent) {
-      _expandImmediately();
-      return;
-    }
-    if (delta < 0) {
-      _expandImmediately();
-      return;
-    }
-    if (delta <= 0) return;
-
-    _accumulatedDownwardScroll += delta;
-    if (_accumulatedDownwardScroll >= configuration.collapseThreshold) {
-      _setCollapsed(true);
-    }
-    _scheduleIdleExpansion(configuration);
-  }
-
-  void _scheduleIdleExpansion(
-    LiquidGlassIOSNavBarScrollConfiguration configuration,
-  ) {
-    _idleExpandTimer?.cancel();
-    _idleExpandTimer = Timer(
-      configuration.idleExpandDuration,
-      _expandImmediately,
-    );
-  }
-
-  void _expandImmediately() {
-    _idleExpandTimer?.cancel();
-    _idleExpandTimer = null;
-    _accumulatedDownwardScroll = 0;
-    _setCollapsed(false);
-  }
-
-  void _setCollapsed(bool collapsed) {
-    if (_isCollapsed == collapsed) return;
-    _isCollapsed = collapsed;
-    _sendCollapsedState();
   }
 
   void _sendCollapsedState() {
     final configuration = widget.scrollConfiguration;
     _channel?.invokeMethod<void>('setCollapsed', {
-      'collapsed': _isCollapsed && configuration != null,
+      'collapsed': _scrollBehavior.isCollapsed && configuration != null,
       'scale': configuration?.collapsedScale ?? 1.0,
       'durationMillis': configuration?.animationDuration.inMilliseconds ?? 0,
     });
@@ -326,8 +288,7 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
 
   @override
   void dispose() {
-    _idleExpandTimer?.cancel();
-    _scrollObserver?.removeListener(_handleScrollNotification);
+    _scrollBehavior.dispose();
     _channel?.setMethodCallHandler(null);
     super.dispose();
   }
@@ -346,7 +307,7 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
           channel.setMethodCallHandler((call) async {
             if (call.method == 'tap') {
               final index = call.arguments as int;
-              _expandImmediately();
+              _scrollBehavior.expand();
               HapticFeedback.selectionClick();
               widget.onTap(index);
             }
@@ -363,15 +324,15 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
   }
 }
 
-/// Configures native iOS nav-bar resizing in response to vertical scrolling.
+/// Configures navigation-bar resizing in response to vertical scrolling.
 ///
-/// Pass an instance to [LiquidGlassNavBar.iosScrollConfiguration] to collapse
-/// the native bar after downward scrolling. Upward scrolling, reaching the top,
-/// selecting an item, or waiting for [idleExpandDuration] restores normal size.
+/// Pass an instance to [LiquidGlassNavBar.scrollConfiguration] to share the
+/// behavior across iOS and Android. Platform-specific overrides remain
+/// available when the two renderers need different values.
 @immutable
-class LiquidGlassIOSNavBarScrollConfiguration {
-  /// Creates an iOS scroll-resize configuration.
-  const LiquidGlassIOSNavBarScrollConfiguration({
+class LiquidGlassNavBarScrollConfiguration {
+  /// Creates a scroll-resize configuration.
+  const LiquidGlassNavBarScrollConfiguration({
     this.collapsedScale = 0.82,
     this.collapseThreshold = 12,
     this.animationDuration = const Duration(milliseconds: 280),
@@ -385,7 +346,7 @@ class LiquidGlassIOSNavBarScrollConfiguration {
   /// Accumulated downward scroll distance required before collapsing.
   final double collapseThreshold;
 
-  /// Duration of the native spring resize animation.
+  /// Duration of the resize animation.
   final Duration animationDuration;
 
   /// Time since the last downward update before automatically expanding.
@@ -394,7 +355,7 @@ class LiquidGlassIOSNavBarScrollConfiguration {
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        other is LiquidGlassIOSNavBarScrollConfiguration &&
+        other is LiquidGlassNavBarScrollConfiguration &&
             collapsedScale == other.collapsedScale &&
             collapseThreshold == other.collapseThreshold &&
             animationDuration == other.animationDuration &&
@@ -410,52 +371,83 @@ class LiquidGlassIOSNavBarScrollConfiguration {
       );
 }
 
-/// Configures Android nav-bar resizing in response to vertical scrolling.
-///
-/// Pass an instance to [LiquidGlassNavBar.androidScrollConfiguration] to
-/// collapse the Flutter-rendered Android bar after downward scrolling. Upward
-/// scrolling, reaching the top, selecting an item, or waiting for
-/// [idleExpandDuration] restores normal size.
-@immutable
-class LiquidGlassAndroidNavBarScrollConfiguration {
-  /// Creates an Android scroll-resize configuration.
-  const LiquidGlassAndroidNavBarScrollConfiguration({
-    this.collapsedScale = 0.82,
-    this.collapseThreshold = 12,
-    this.animationDuration = const Duration(milliseconds: 280),
-    this.idleExpandDuration = const Duration(seconds: 5),
-  })  : assert(collapsedScale > 0 && collapsedScale <= 1),
-        assert(collapseThreshold >= 0);
+/// Deprecated iOS name for [LiquidGlassNavBarScrollConfiguration].
+@Deprecated('Use LiquidGlassNavBarScrollConfiguration.')
+typedef LiquidGlassIOSNavBarScrollConfiguration
+    = LiquidGlassNavBarScrollConfiguration;
 
-  /// Scale applied to both width and height while collapsed.
-  final double collapsedScale;
+/// Deprecated Android name for [LiquidGlassNavBarScrollConfiguration].
+@Deprecated('Use LiquidGlassNavBarScrollConfiguration.')
+typedef LiquidGlassAndroidNavBarScrollConfiguration
+    = LiquidGlassNavBarScrollConfiguration;
 
-  /// Accumulated downward scroll distance required before collapsing.
-  final double collapseThreshold;
+class _NavBarScrollBehavior {
+  _NavBarScrollBehavior({required this.onCollapsedChanged});
 
-  /// Duration of the Flutter scale animation.
-  final Duration animationDuration;
+  final ValueChanged<bool> onCollapsedChanged;
+  ScrollNotificationObserverState? _observer;
+  Timer? _idleExpandTimer;
+  LiquidGlassNavBarScrollConfiguration? _configuration;
+  double _accumulatedDownwardScroll = 0;
 
-  /// Time since the last downward update before automatically expanding.
-  final Duration idleExpandDuration;
+  bool isCollapsed = false;
 
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is LiquidGlassAndroidNavBarScrollConfiguration &&
-            collapsedScale == other.collapsedScale &&
-            collapseThreshold == other.collapseThreshold &&
-            animationDuration == other.animationDuration &&
-            idleExpandDuration == other.idleExpandDuration;
+  void update(
+    BuildContext context,
+    LiquidGlassNavBarScrollConfiguration? configuration,
+  ) {
+    _configuration = configuration;
+    final nextObserver = configuration == null
+        ? null
+        : ScrollNotificationObserver.maybeOf(context);
+    if (!identical(_observer, nextObserver)) {
+      _observer?.removeListener(_handleScrollNotification);
+      _observer = nextObserver;
+      _observer?.addListener(_handleScrollNotification);
+    }
+    if (configuration == null) expand();
   }
 
-  @override
-  int get hashCode => Object.hash(
-        collapsedScale,
-        collapseThreshold,
-        animationDuration,
-        idleExpandDuration,
-      );
+  void _handleScrollNotification(ScrollNotification notification) {
+    final configuration = _configuration;
+    if (configuration == null || notification.metrics.axis != Axis.vertical) {
+      return;
+    }
+    if (notification is! ScrollUpdateNotification) return;
+
+    final metrics = notification.metrics;
+    final delta = notification.scrollDelta ?? 0;
+    if (metrics.pixels <= metrics.minScrollExtent || delta < 0) {
+      expand();
+      return;
+    }
+    if (delta <= 0) return;
+
+    _accumulatedDownwardScroll += delta;
+    if (_accumulatedDownwardScroll >= configuration.collapseThreshold) {
+      _setCollapsed(true);
+    }
+    _idleExpandTimer?.cancel();
+    _idleExpandTimer = Timer(configuration.idleExpandDuration, expand);
+  }
+
+  void expand() {
+    _idleExpandTimer?.cancel();
+    _idleExpandTimer = null;
+    _accumulatedDownwardScroll = 0;
+    _setCollapsed(false);
+  }
+
+  void _setCollapsed(bool collapsed) {
+    if (isCollapsed == collapsed) return;
+    isCollapsed = collapsed;
+    onCollapsedChanged(collapsed);
+  }
+
+  void dispose() {
+    _idleExpandTimer?.cancel();
+    _observer?.removeListener(_handleScrollNotification);
+  }
 }
 
 /// Shared floating dock. [PlatformGlass] supplies native Liquid Glass on iOS
@@ -486,7 +478,7 @@ class _LiquidGlassDock extends StatefulWidget {
   final Color inactiveColor;
   final Color indicatorColor;
   final bool showLabels;
-  final LiquidGlassAndroidNavBarScrollConfiguration? scrollConfiguration;
+  final LiquidGlassNavBarScrollConfiguration? scrollConfiguration;
 
   @override
   State<_LiquidGlassDock> createState() => _LiquidGlassDockState();
@@ -501,10 +493,7 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
   late final ValueNotifier<int?> _dragIndex;
   late double _fromPosition;
   late double _toPosition;
-  ScrollNotificationObserverState? _scrollObserver;
-  Timer? _idleExpandTimer;
-  bool _isCollapsed = false;
-  double _accumulatedDownwardScroll = 0;
+  late final _NavBarScrollBehavior _scrollBehavior;
 
   static const _duration = Duration(milliseconds: 550);
   static const _holdDuration = Duration(milliseconds: 180);
@@ -533,19 +522,24 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
       _holdController,
       _dragCenter,
     ]);
+    _scrollBehavior = _NavBarScrollBehavior(
+      onCollapsedChanged: (_) {
+        if (mounted) setState(() {});
+      },
+    );
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _attachScrollObserver();
+    _scrollBehavior.update(context, widget.scrollConfiguration);
   }
 
   @override
   void didUpdateWidget(covariant _LiquidGlassDock oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentIndex != widget.currentIndex) {
-      _expandImmediately();
+      _scrollBehavior.expand();
       _fromPosition = _currentBlobPosition();
       _toPosition = widget.currentIndex.toDouble();
       _controller
@@ -554,63 +548,8 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
         ..forward();
     }
     if (oldWidget.scrollConfiguration != widget.scrollConfiguration) {
-      _attachScrollObserver();
-      if (widget.scrollConfiguration == null) {
-        _expandImmediately();
-      }
+      _scrollBehavior.update(context, widget.scrollConfiguration);
     }
-  }
-
-  void _attachScrollObserver() {
-    _scrollObserver?.removeListener(_handleScrollNotification);
-    _scrollObserver = null;
-    if (widget.scrollConfiguration == null) return;
-    _scrollObserver = ScrollNotificationObserver.maybeOf(context);
-    _scrollObserver?.addListener(_handleScrollNotification);
-  }
-
-  void _handleScrollNotification(ScrollNotification notification) {
-    final configuration = widget.scrollConfiguration;
-    if (configuration == null || notification.metrics.axis != Axis.vertical) {
-      return;
-    }
-    if (notification is! ScrollUpdateNotification) return;
-
-    final metrics = notification.metrics;
-    final delta = notification.scrollDelta ?? 0;
-    if (metrics.pixels <= metrics.minScrollExtent || delta < 0) {
-      _expandImmediately();
-      return;
-    }
-    if (delta <= 0) return;
-
-    _accumulatedDownwardScroll += delta;
-    if (_accumulatedDownwardScroll >= configuration.collapseThreshold) {
-      _setCollapsed(true);
-    }
-    _scheduleIdleExpansion(configuration);
-  }
-
-  void _scheduleIdleExpansion(
-    LiquidGlassAndroidNavBarScrollConfiguration configuration,
-  ) {
-    _idleExpandTimer?.cancel();
-    _idleExpandTimer = Timer(
-      configuration.idleExpandDuration,
-      _expandImmediately,
-    );
-  }
-
-  void _expandImmediately() {
-    _idleExpandTimer?.cancel();
-    _idleExpandTimer = null;
-    _accumulatedDownwardScroll = 0;
-    _setCollapsed(false);
-  }
-
-  void _setCollapsed(bool collapsed) {
-    if (_isCollapsed == collapsed) return;
-    setState(() => _isCollapsed = collapsed);
   }
 
   // If a tap interrupts an in-flight animation, start the new leg from
@@ -667,7 +606,7 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
       ..forward();
 
     if (selectItem) {
-      _expandImmediately();
+      _scrollBehavior.expand();
     }
     if (selectItem && target != widget.currentIndex) {
       widget.onTap(target);
@@ -676,8 +615,7 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
 
   @override
   void dispose() {
-    _idleExpandTimer?.cancel();
-    _scrollObserver?.removeListener(_handleScrollNotification);
+    _scrollBehavior.dispose();
     _controller.dispose();
     _holdController.dispose();
     _dragCenter.dispose();
@@ -742,7 +680,9 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
     final scrollConfiguration = widget.scrollConfiguration;
     return AnimatedScale(
       key: const ValueKey('liquid-glass-nav-dock-scale'),
-      scale: _isCollapsed ? scrollConfiguration?.collapsedScale ?? 1.0 : 1.0,
+      scale: _scrollBehavior.isCollapsed
+          ? scrollConfiguration?.collapsedScale ?? 1.0
+          : 1.0,
       duration: scrollConfiguration?.animationDuration ?? Duration.zero,
       curve: Curves.easeOutBack,
       child: SizedBox(
@@ -836,7 +776,7 @@ class _LiquidGlassDockState extends State<_LiquidGlassDock>
                                     inactiveColor: widget.inactiveColor,
                                     showLabel: widget.showLabels,
                                     onTap: () {
-                                      _expandImmediately();
+                                      _scrollBehavior.expand();
                                       HapticFeedback.selectionClick();
                                       widget.onTap(index);
                                     },

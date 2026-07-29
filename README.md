@@ -50,39 +50,57 @@ replaces the child with a progress indicator. Use `pressScaleFactor` and
 
 ### Navigation bar
 
-`LiquidGlassNavBar` returns a `Positioned` widget and must be placed inside a
-`Stack`. It is controlled: update `currentIndex` from `onTap`. Its safe-area
-spacing defaults to `8` logical pixels on native iOS and `16` on Android and
-other fallback platforms; customize these with `iosBottomPadding` and
-`bottomPadding`.
+`LiquidGlassNavBar` is a normal layout widget. It is controlled: update
+`currentIndex` from `onTap`.
 
 ```dart
 Scaffold(
-  body: Stack(
-    children: [
-      pages[currentIndex],
-      LiquidGlassNavBar(
-        currentIndex: currentIndex,
-        onTap: (index) => setState(() => currentIndex = index),
-        items: const [
-          LiquidGlassNavItem(
-            icon: Icons.home_outlined,
-            activeIcon: Icons.home,
-            label: 'Home',
-            iosSystemImage: 'house',
-            iosSelectedSystemImage: 'house.fill',
-          ),
-          LiquidGlassNavItem(
-            icon: Icons.search,
-            label: 'Search',
-            androidIcon: Text('S'),
-          ),
-        ],
-      ),
-    ],
+  body: pages[currentIndex],
+  bottomNavigationBar: SafeArea(
+    minimum: const EdgeInsets.all(16),
+    child: LiquidGlassNavBar(
+      currentIndex: currentIndex,
+      onTap: (index) => setState(() => currentIndex = index),
+      items: const [
+        LiquidGlassNavItem(
+          icon: Icons.home_outlined,
+          activeIcon: Icons.home,
+          label: 'Home',
+          iosSystemImage: 'house',
+          iosSelectedSystemImage: 'house.fill',
+        ),
+        LiquidGlassNavItem(
+          icon: Icons.search,
+          label: 'Search',
+          androidIcon: Text('S'),
+        ),
+      ],
+    ),
   ),
 )
 ```
+
+Use `LiquidGlassFloatingNavBar` inside a `Stack` when content should continue
+behind the bar:
+
+```dart
+Stack(
+  children: [
+    pages[currentIndex],
+    LiquidGlassFloatingNavBar(
+      child: LiquidGlassNavBar(
+        currentIndex: currentIndex,
+        onTap: (index) => setState(() => currentIndex = index),
+        items: items,
+      ),
+    ),
+  ],
+)
+```
+
+The floating wrapper applies horizontal padding and includes the bottom safe
+area by default. Set `respectSafeArea: false` only when an ancestor already
+handles it.
 
 On the Flutter fallback, users can hold and drag the selection indicator. Icons
 and labels preview the item under the indicator, but navigation occurs only
@@ -90,20 +108,13 @@ after release. Cancelling restores the current item.
 
 iOS and Android can optionally shrink the bar while a vertical scrollable
 moves down, then restore it as soon as scrolling moves up or after an idle
-delay. Each platform can be configured independently:
+delay. One configuration applies to both platforms:
 
 ```dart
 LiquidGlassNavBar(
   currentIndex: currentIndex,
   onTap: onTap,
-  iosScrollConfiguration: const LiquidGlassIOSNavBarScrollConfiguration(
-    collapsedScale: 0.82,
-    collapseThreshold: 12,
-    animationDuration: Duration(milliseconds: 280),
-    idleExpandDuration: Duration(seconds: 5),
-  ),
-  androidScrollConfiguration:
-      const LiquidGlassAndroidNavBarScrollConfiguration(
+  scrollConfiguration: const LiquidGlassNavBarScrollConfiguration(
     collapsedScale: 0.82,
     collapseThreshold: 12,
     animationDuration: Duration(milliseconds: 280),
@@ -112,6 +123,12 @@ LiquidGlassNavBar(
   items: items,
 )
 ```
+
+Use `iosScrollConfiguration` or `androidScrollConfiguration` only when one
+platform needs different values. The former
+`LiquidGlassIOSNavBarScrollConfiguration` and
+`LiquidGlassAndroidNavBarScrollConfiguration` names remain as deprecated type
+aliases.
 
 The behavior also expands at the top and when an item is selected. It listens
 through the nearest `ScrollNotificationObserver`; a `Scaffold` supplies one
@@ -123,6 +140,20 @@ target platform, and both are ignored on web and desktop.
 the active `IconTheme` and `DefaultTextStyle`. Native iOS uses SF Symbol names
 from `iosSystemImage` and `iosSelectedSystemImage`, with automatic mappings for
 common Material icons.
+
+## Native iOS fidelity
+
+Native surfaces preserve all four Flutter corner radii. On iOS 26 each surface
+is rendered inside a SwiftUI `GlassEffectContainer`; Reduce Transparency
+replaces blur with a strong opaque tint, Increase Contrast strengthens tint and
+borders, and Reduce Motion disables interactive glass and nav spring motion.
+iOS 16-25 uses the same per-corner shape and accessibility adaptations with
+system material.
+
+Each `PlatformGlass` is a separate `UiKitView`, so its
+`GlassEffectContainer` cannot merge or morph with containers hosted by sibling
+platform views. True cross-widget morphing requires a future single native host
+that receives all Flutter surface geometries.
 
 ## Shared settings
 

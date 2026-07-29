@@ -40,9 +40,9 @@ void main() {
     expect(first.hashCode, second.hashCode);
   });
 
-  test('iOS nav scroll configuration has stable defaults and equality', () {
-    const first = LiquidGlassIOSNavBarScrollConfiguration();
-    const second = LiquidGlassIOSNavBarScrollConfiguration();
+  test('nav scroll configuration has stable defaults and equality', () {
+    const first = LiquidGlassNavBarScrollConfiguration();
+    const second = LiquidGlassNavBarScrollConfiguration();
 
     expect(first.collapsedScale, 0.82);
     expect(first.collapseThreshold, 12);
@@ -52,19 +52,7 @@ void main() {
     expect(first.hashCode, second.hashCode);
   });
 
-  test('Android nav scroll configuration has stable defaults and equality', () {
-    const first = LiquidGlassAndroidNavBarScrollConfiguration();
-    const second = LiquidGlassAndroidNavBarScrollConfiguration();
-
-    expect(first.collapsedScale, 0.82);
-    expect(first.collapseThreshold, 12);
-    expect(first.animationDuration, const Duration(milliseconds: 280));
-    expect(first.idleExpandDuration, const Duration(seconds: 5));
-    expect(first, second);
-    expect(first.hashCode, second.hashCode);
-  });
-
-  testWidgets('nav bar uses smaller default bottom spacing on iOS', (
+  testWidgets('floating nav bar handles safe area and platform spacing', (
     tester,
   ) async {
     late BuildContext buildContext;
@@ -87,14 +75,17 @@ void main() {
       onTap: _noop,
       items: _navItems,
     );
+    final floatingNavBar = LiquidGlassFloatingNavBar(child: navBar);
+
+    expect(navBar.build(buildContext), isNot(isA<Positioned>()));
 
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    final androidPosition = navBar.build(buildContext) as Positioned;
+    final androidPosition = floatingNavBar.build(buildContext) as Positioned;
     expect(androidPosition.bottom, 50);
 
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    final iosPosition = navBar.build(buildContext) as Positioned;
-    expect(iosPosition.bottom, 42);
+    final iosPosition = floatingNavBar.build(buildContext) as Positioned;
+    expect(iosPosition.bottom, 34);
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -323,6 +314,37 @@ void main() {
     expect(gradient.colors.last, purple.withValues(alpha: 0.10));
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
+  testWidgets('high contrast strengthens fallback tint and border', (
+    tester,
+  ) async {
+    const tint = Color(0xFF2563EB);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(highContrast: true),
+          child: LiquidGlassCard(
+            key: ValueKey('high-contrast-card'),
+            settings: LiquidGlassSettings(
+              tintColor: tint,
+              tintOpacity: 0.2,
+              borderOpacity: 0.1,
+            ),
+            child: SizedBox(width: 120, height: 60),
+          ),
+        ),
+      ),
+    );
+
+    final decoration = _glassDecorationUnder(tester, 'high-contrast-card');
+    expect(decoration.color, tint.withValues(alpha: 0.78));
+    expect(
+      decoration.border,
+      Border.all(
+        color: Colors.white.withValues(alpha: 0.55),
+      ),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
   testWidgets('Android nav bar can render a custom widget icon', (
     tester,
   ) async {
@@ -347,8 +369,8 @@ void main() {
                 currentIndex: 0,
                 onTap: _noop,
                 items: items,
-                iosScrollConfiguration:
-                    const LiquidGlassIOSNavBarScrollConfiguration(),
+                scrollConfiguration:
+                    const LiquidGlassNavBarScrollConfiguration(),
               ),
             ],
           ),
@@ -375,8 +397,8 @@ void main() {
                   currentIndex: 0,
                   onTap: _noop,
                   items: _navItems,
-                  androidScrollConfiguration:
-                      const LiquidGlassAndroidNavBarScrollConfiguration(
+                  scrollConfiguration:
+                      const LiquidGlassNavBarScrollConfiguration(
                     collapsedScale: 0.7,
                     collapseThreshold: 1,
                     animationDuration: Duration.zero,

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -38,6 +39,7 @@ class FallbackGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final highContrast = MediaQuery.highContrastOf(context);
     final tint = settings.tintColor ??
         (isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF8F8FA));
     final surfaceIsDark =
@@ -56,13 +58,19 @@ class FallbackGlass extends StatelessWidget {
 
     final blurSigma =
         settings.blurSigma.clamp(0.0, settings.androidBlurSigma).toDouble();
+    final tintOpacity = highContrast
+        ? math.max(settings.tintOpacity, surfaceIsDark ? 0.78 : 0.68)
+        : settings.tintOpacity;
+    final borderOpacity = highContrast
+        ? math.max(settings.borderOpacity, 0.55)
+        : settings.borderOpacity;
     final glassContent = Container(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         // Tint layer
-        color: tint.withValues(alpha: settings.tintOpacity),
+        color: tint.withValues(alpha: tintOpacity),
         border: Border.all(
-          color: Colors.white.withValues(alpha: settings.borderOpacity),
+          color: Colors.white.withValues(alpha: borderOpacity),
           width: settings.borderWidth,
         ),
         gradient: LinearGradient(
@@ -116,6 +124,9 @@ class FallbackGlass extends StatelessWidget {
 /// Do not wrap multiple [PageView] pages or route transitions in one group:
 /// pages can overlap while moving, which can make grouped backdrop filters
 /// sample the wrong backdrop and visibly change color during the transition.
+///
+/// Native iOS surfaces each use their own SwiftUI `GlassEffectContainer`.
+/// Separate Flutter platform views cannot share one native morphing namespace.
 class LiquidGlassBackdropGroup extends StatefulWidget {
   /// Creates a shared backdrop and optional settings boundary around [child].
   ///

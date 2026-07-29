@@ -84,68 +84,36 @@ class LiquidGlassSurfaceView: NSObject, FlutterPlatformView {
   func view() -> UIView { _view }
 
   private func setupGlassView(frame: CGRect, args: [String: Any]?) {
-    let cornerRadius = args?["cornerRadius"] as? CGFloat ?? 24
-    let tintOpacity  = args?["tintOpacity"]  as? Double   ?? 0.15
-    let tintHex      = args?["tintColorHex"] as? String
+    let radii = LiquidGlassCornerRadii(arguments: args)
+    let tintOpacity = (args?["tintOpacity"] as? NSNumber)?.doubleValue ?? 0.15
+    let tintHex = args?["tintColorHex"] as? String
+    let rootView: AnyView
 
     if #available(iOS 26.0, *) {
-      // ── Native iOS 26 Liquid Glass ─────────────────────────────────────────
-      let controller = UIHostingController(
-        rootView: LiquidGlassSurface(
-          cornerRadius: cornerRadius,
+      rootView = AnyView(
+        LiquidGlassSurface(
+          cornerRadii: radii,
           tintOpacity: tintOpacity,
           tintColorHex: tintHex
         )
       )
-      controller.view.frame = frame
-      controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-      controller.view.backgroundColor = .clear
-      controller.view.isOpaque = false
-      hostingController = controller
-      _view = controller.view
     } else {
-      // ── Legacy glassmorphism fallback (< iOS 26) ───────────────────────────
-      _view = makeFallbackGlass(
-        frame: frame,
-        cornerRadius: cornerRadius,
-        tintOpacity: tintOpacity,
-        tintHex: tintHex
+      rootView = AnyView(
+        LegacyLiquidGlassSurface(
+          cornerRadii: radii,
+          tintOpacity: tintOpacity,
+          tintColorHex: tintHex
+        )
       )
     }
-  }
 
-  // MARK: Fallback blur view for iOS < 26
-
-  private func makeFallbackGlass(
-    frame: CGRect,
-    cornerRadius: CGFloat,
-    tintOpacity: Double,
-    tintHex: String?
-  ) -> UIView {
-    let container = UIView(frame: frame)
-    container.backgroundColor = .clear
-    container.layer.cornerRadius = cornerRadius
-    container.clipsToBounds = true
-
-    // Background blur
-    let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
-    blur.frame = container.bounds
-    blur.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    container.addSubview(blur)
-
-    // Optional tint
-    let tintView = UIView(frame: container.bounds)
-    tintView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    tintView.backgroundColor = liquidGlassColor(from: tintHex ?? "#FFFFFFFF")
-      .withAlphaComponent(CGFloat(tintOpacity))
-    container.addSubview(tintView)
-
-    // Border highlight
-    container.layer.borderWidth  = 1
-    container.layer.borderColor  = UIColor.white.withAlphaComponent(0.25).cgColor
-    container.layer.cornerRadius = cornerRadius
-
-    return container
+    let controller = UIHostingController(rootView: rootView)
+    controller.view.frame = frame
+    controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    controller.view.backgroundColor = .clear
+    controller.view.isOpaque = false
+    hostingController = controller
+    _view = controller.view
   }
 
 }
@@ -160,6 +128,7 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
   private var disposed = false
   private var scrollCollapseScale: CGFloat = 0.82
   private var scrollAnimationDuration: TimeInterval = 0.28
+  private var appearanceArguments: [String: Any]?
 
   init(
     frame: CGRect,
@@ -179,6 +148,7 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
   deinit {
     disposed = true
+    NotificationCenter.default.removeObserver(self)
     tabBar.delegate = nil
     channel.setMethodCallHandler(nil)
   }
@@ -186,6 +156,7 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
   func view() -> UIView { container }
 
   private func setup(frame: CGRect, args: [String: Any]?) {
+    appearanceArguments = args
     container.backgroundColor = .clear
     container.isOpaque = false
     container.clipsToBounds = false
@@ -209,6 +180,18 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
     applyAppearance(args: args)
     applyItems(args: args)
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(accessibilityAppearanceDidChange),
+      name: UIAccessibility.reduceTransparencyStatusDidChangeNotification,
+      object: nil
+    )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(accessibilityAppearanceDidChange),
+      name: UIAccessibility.darkerSystemColorsStatusDidChangeNotification,
+      object: nil
+    )
 
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else {
@@ -246,15 +229,24 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
   private func applyAppearance(args: [String: Any]?) {
     let tintColor = liquidGlassColor(from: args?["tintColorHex"] as? String ?? "#FF000000")
-    let tintOpacity = CGFloat(args?["tintOpacity"] as? Double ?? 0.26)
+    let requestedTintOpacity = CGFloat(args?["tintOpacity"] as? Double ?? 0.26)
+    let highContrast = UIAccessibility.isDarkerSystemColorsEnabled
+    let reduceTransparency = UIAccessibility.isReduceTransparencyEnabled
+    let tintOpacity = reduceTransparency
+      ? max(requestedTintOpacity, 0.82)
+      : min(1, requestedTintOpacity + (highContrast ? 0.20 : 0))
     let activeColor = liquidGlassColor(from: args?["activeColorHex"] as? String ?? "#FFFFFFFF")
     let inactiveColor = liquidGlassColor(from: args?["inactiveColorHex"] as? String ?? "#99FFFFFF")
 
     let appearance = UITabBarAppearance()
     appearance.configureWithTransparentBackground()
-    appearance.backgroundEffect = UIBlurEffect(style: .systemUltraThinMaterialDark)
+    appearance.backgroundEffect = reduceTransparency
+      ? nil
+      : UIBlurEffect(style: .systemUltraThinMaterialDark)
     appearance.backgroundColor = tintColor.withAlphaComponent(tintOpacity)
-    appearance.shadowColor = .clear
+    appearance.shadowColor = highContrast
+      ? UIColor.white.withAlphaComponent(0.45)
+      : .clear
 
     let itemAppearance = UITabBarItemAppearance()
     itemAppearance.normal.iconColor = inactiveColor
@@ -279,6 +271,10 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
     tabBar.tintColor = activeColor
     tabBar.unselectedItemTintColor = inactiveColor
     tabBar.backgroundColor = .clear
+  }
+
+  @objc private func accessibilityAppearanceDidChange() {
+    applyAppearance(args: appearanceArguments)
   }
 
   private func applyItems(args: [String: Any]?) {
@@ -322,7 +318,11 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
   private func setCollapsed(_ collapsed: Bool, animated: Bool) {
     let scale = collapsed ? scrollCollapseScale : 1
     let transform = CGAffineTransform(scaleX: scale, y: scale)
-    guard animated && scrollAnimationDuration > 0 else {
+    guard
+      animated,
+      scrollAnimationDuration > 0,
+      !UIAccessibility.isReduceMotionEnabled
+    else {
       tabBar.transform = transform
       return
     }
@@ -349,6 +349,7 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
   }
 
   private func animateSelectedItem(index: Int) {
+    guard !UIAccessibility.isReduceMotionEnabled else { return }
     guard
       let selectedView = tabBar.subviews
         .compactMap({ $0 as? UIControl })
@@ -409,11 +410,87 @@ private func liquidGlassColor(from hex: String) -> UIColor {
   return UIColor(red: red, green: green, blue: blue, alpha: alpha)
 }
 
-// MARK: - SwiftUI Surface (iOS 26+)
+// MARK: - SwiftUI Surfaces
 
-@available(iOS 26.0, *)
-struct LiquidGlassSurface: View {
-  let cornerRadius: CGFloat
+struct LiquidGlassCornerRadii {
+  let topLeft: CGFloat
+  let topRight: CGFloat
+  let bottomRight: CGFloat
+  let bottomLeft: CGFloat
+
+  init(arguments: [String: Any]?) {
+    func radius(_ key: String) -> CGFloat {
+      CGFloat((arguments?[key] as? NSNumber)?.doubleValue ?? 24)
+    }
+    topLeft = radius("topLeftRadius")
+    topRight = radius("topRightRadius")
+    bottomRight = radius("bottomRightRadius")
+    bottomLeft = radius("bottomLeftRadius")
+  }
+}
+
+struct LiquidGlassRoundedShape: Shape {
+  let radii: LiquidGlassCornerRadii
+
+  func path(in rect: CGRect) -> Path {
+    let maximumRadius = min(rect.width, rect.height) / 2
+    let topLeft = min(max(radii.topLeft, 0), maximumRadius)
+    let topRight = min(max(radii.topRight, 0), maximumRadius)
+    let bottomRight = min(max(radii.bottomRight, 0), maximumRadius)
+    let bottomLeft = min(max(radii.bottomLeft, 0), maximumRadius)
+
+    var path = Path()
+    path.move(to: CGPoint(x: rect.minX + topLeft, y: rect.minY))
+    path.addLine(to: CGPoint(x: rect.maxX - topRight, y: rect.minY))
+    if topRight > 0 {
+      path.addArc(
+        center: CGPoint(x: rect.maxX - topRight, y: rect.minY + topRight),
+        radius: topRight,
+        startAngle: .degrees(-90),
+        endAngle: .degrees(0),
+        clockwise: false
+      )
+    }
+    path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - bottomRight))
+    if bottomRight > 0 {
+      path.addArc(
+        center: CGPoint(x: rect.maxX - bottomRight, y: rect.maxY - bottomRight),
+        radius: bottomRight,
+        startAngle: .degrees(0),
+        endAngle: .degrees(90),
+        clockwise: false
+      )
+    }
+    path.addLine(to: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY))
+    if bottomLeft > 0 {
+      path.addArc(
+        center: CGPoint(x: rect.minX + bottomLeft, y: rect.maxY - bottomLeft),
+        radius: bottomLeft,
+        startAngle: .degrees(90),
+        endAngle: .degrees(180),
+        clockwise: false
+      )
+    }
+    path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + topLeft))
+    if topLeft > 0 {
+      path.addArc(
+        center: CGPoint(x: rect.minX + topLeft, y: rect.minY + topLeft),
+        radius: topLeft,
+        startAngle: .degrees(180),
+        endAngle: .degrees(270),
+        clockwise: false
+      )
+    }
+    path.closeSubpath()
+    return path
+  }
+}
+
+struct LegacyLiquidGlassSurface: View {
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  let cornerRadii: LiquidGlassCornerRadii
   let tintOpacity: Double
   let tintColorHex: String?
 
@@ -421,17 +498,69 @@ struct LiquidGlassSurface: View {
     Color(uiColor: liquidGlassColor(from: tintColorHex ?? "#FFFFFFFF"))
   }
 
+  private var effectiveTintOpacity: Double {
+    min(1, tintOpacity + (contrast == .increased ? 0.20 : 0))
+  }
+
   var body: some View {
-    // The glass modifier paints the material. Adding the tint as the base view
-    // would also paint an opaque rectangular layer outside the rounded shape.
-    Color.clear
-      .glassEffect(
-        // `clear` is still native Liquid Glass, but lets the app's background
-        // participate in the material instead of turning a large card milky.
-        Glass.clear
-          .tint(tintColor.opacity(tintOpacity))
-          .interactive(true),
-        in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    let shape = LiquidGlassRoundedShape(radii: cornerRadii)
+    ZStack {
+      if reduceTransparency {
+        shape.fill(tintColor.opacity(max(effectiveTintOpacity, 0.82)))
+      } else {
+        shape.fill(.ultraThinMaterial)
+        shape.fill(tintColor.opacity(effectiveTintOpacity))
+      }
+    }
+    .overlay(
+      shape.stroke(
+        Color.white.opacity(contrast == .increased ? 0.58 : 0.25),
+        lineWidth: contrast == .increased ? 1.5 : 1
       )
+    )
+    .clipShape(shape)
+  }
+}
+
+@available(iOS 26.0, *)
+struct LiquidGlassSurface: View {
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  let cornerRadii: LiquidGlassCornerRadii
+  let tintOpacity: Double
+  let tintColorHex: String?
+
+  private var tintColor: Color {
+    Color(uiColor: liquidGlassColor(from: tintColorHex ?? "#FFFFFFFF"))
+  }
+
+  private var effectiveTintOpacity: Double {
+    min(1, tintOpacity + (contrast == .increased ? 0.20 : 0))
+  }
+
+  var body: some View {
+    let shape = LiquidGlassRoundedShape(radii: cornerRadii)
+    if reduceTransparency {
+      shape
+        .fill(tintColor.opacity(max(effectiveTintOpacity, 0.82)))
+        .overlay(
+          shape.stroke(
+            Color.white.opacity(contrast == .increased ? 0.64 : 0.36),
+            lineWidth: contrast == .increased ? 1.5 : 1
+          )
+        )
+    } else {
+      GlassEffectContainer {
+        Color.clear
+          .glassEffect(
+            Glass.clear
+              .tint(tintColor.opacity(effectiveTintOpacity))
+              .interactive(!reduceMotion),
+            in: shape
+          )
+      }
+    }
   }
 }

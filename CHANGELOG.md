@@ -1,3 +1,11 @@
+## 1.2.0
+
+- Make `LiquidGlassNavBar` a normal layout widget and add `LiquidGlassFloatingNavBar` for safe-area-aware floating placement.
+- Unify iOS and Android scroll resizing under `LiquidGlassNavBarScrollConfiguration`, retaining deprecated platform-specific type aliases.
+- Preserve all four corner radii in native iOS surfaces.
+- Render iOS 26 surfaces inside `GlassEffectContainer` and adapt native/fallback rendering for Reduce Transparency and Increase Contrast.
+- Respect Reduce Motion in native iOS glass and navigation animations.
+
 ## 1.1.0
 
 - Add configurable Android nav-bar collapse on downward scrolling, with upward-scroll and five-second idle expansion.
