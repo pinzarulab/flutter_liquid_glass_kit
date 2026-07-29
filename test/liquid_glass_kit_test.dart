@@ -52,6 +52,16 @@ void main() {
     expect(first.hashCode, second.hashCode);
   });
 
+  test('legacy platform scroll configuration names remain compatible', () {
+    // ignore: deprecated_member_use_from_same_package
+    const ios = LiquidGlassIOSNavBarScrollConfiguration();
+    // ignore: deprecated_member_use_from_same_package
+    const android = LiquidGlassAndroidNavBarScrollConfiguration();
+
+    expect(ios, const LiquidGlassNavBarScrollConfiguration());
+    expect(android, const LiquidGlassNavBarScrollConfiguration());
+  });
+
   testWidgets('floating nav bar handles safe area and platform spacing', (
     tester,
   ) async {
