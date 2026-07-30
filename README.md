@@ -84,16 +84,16 @@ Scaffold(
       onTap: (index) => setState(() => currentIndex = index),
       items: const [
         LiquidGlassNavItem(
-          icon: Icons.home_outlined,
-          activeIcon: Icons.home,
+          icon: Icon(Icons.home_outlined),
+          activeIcon: Icon(Icons.home),
           label: 'Home',
           iosSystemImage: 'house',
           iosSelectedSystemImage: 'house.fill',
         ),
         LiquidGlassNavItem(
-          icon: Icons.search,
+          icon: Text('S'),
           label: 'Search',
-          androidIcon: Text('S'),
+          iosSystemImage: 'magnifyingglass',
         ),
       ],
     ),
@@ -196,10 +196,11 @@ automatically. Wrap custom layouts in `ScrollNotificationObserver` when no
 `Scaffold` ancestor is present. Each configuration is ignored outside its
 target platform, and both are ignored on web and desktop.
 
-`androidIcon` and `activeAndroidIcon` accept arbitrary widgets. They inherit
-the active `IconTheme` and `DefaultTextStyle`. Native iOS uses SF Symbol names
-from `iosSystemImage` and `iosSelectedSystemImage`, with automatic mappings for
-common Material icons.
+`icon` and `activeIcon` accept arbitrary widgets and inherit the active
+`IconTheme` and `DefaultTextStyle`. Do not set an explicit colour when the
+widget should follow selected/unselected styling. Native iOS uses SF Symbol
+names from `iosSystemImage` and `iosSelectedSystemImage`; when omitted, it uses
+the neutral `circle` symbol.
 
 ## Native iOS fidelity
 

@@ -455,12 +455,11 @@ void main() {
   ) async {
     const items = [
       LiquidGlassNavItem(
-        icon: Icons.home,
+        icon: Text('H'),
         label: 'Home',
-        androidIcon: Text('H'),
       ),
       LiquidGlassNavItem(
-        icon: Icons.search,
+        icon: Icon(Icons.search),
         label: 'Search',
       ),
     ];
@@ -815,11 +814,11 @@ void _noop(int index) {}
 void _noopVoid() {}
 
 const _navItems = [
-  LiquidGlassNavItem(icon: Icons.home, label: 'Home'),
-  LiquidGlassNavItem(icon: Icons.search, label: 'Search'),
+  LiquidGlassNavItem(icon: Icon(Icons.home), label: 'Home'),
+  LiquidGlassNavItem(icon: Icon(Icons.search), label: 'Search'),
   LiquidGlassNavItem(
-    icon: Icons.favorite_border,
-    activeIcon: Icons.favorite,
+    icon: Icon(Icons.favorite_border),
+    activeIcon: Icon(Icons.favorite),
     label: 'Saved',
   ),
 ];

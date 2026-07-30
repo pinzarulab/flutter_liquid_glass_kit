@@ -287,11 +287,8 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
 
     items = rawItems.enumerated().map { index, raw in
       let label = showLabels ? (raw["label"] as? String ?? "") : nil
-      let imageName = raw["iosSystemImage"] as? String
-        ?? systemImageName(for: raw["iconCodePoint"] as? Int)
-        ?? "circle"
+      let imageName = raw["iosSystemImage"] as? String ?? "circle"
       let selectedImageName = raw["iosSelectedSystemImage"] as? String
-        ?? systemImageName(for: raw["activeIconCodePoint"] as? Int)
         ?? imageName
       let item = UITabBarItem(
         title: label,
@@ -375,16 +372,6 @@ class LiquidGlassNavBarView: NSObject, FlutterPlatformView, UITabBarDelegate {
     )
   }
 
-  private func systemImageName(for codePoint: Int?) -> String? {
-    switch codePoint {
-    case 0xe318, 0xe88a: return "house.fill"
-    case 0xe8b6: return "magnifyingglass"
-    case 0xe87d, 0xe87e: return "heart.fill"
-    case 0xe7fd, 0xe491: return "person.fill"
-    case 0xe5c8: return "chevron.right"
-    default: return nil
-    }
-  }
 }
 
 /// Converts Flutter's `#AARRGGBB` colour representation to UIKit colour.

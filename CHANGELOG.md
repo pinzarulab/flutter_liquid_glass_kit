@@ -1,3 +1,7 @@
+## 1.3.1
+
+- Make `LiquidGlassNavItem.icon` and `activeIcon` Widget-only and remove Material code-point and Android-specific icon fields.
+
 ## 1.3.0
 
 - Stretch the Android navigation indicator vertically in response to horizontal drag speed, with a short decay when movement pauses.

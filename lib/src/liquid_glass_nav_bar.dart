@@ -101,8 +101,8 @@ class LiquidGlassNavBarAnimationState {
 ///       currentIndex: _index,
 ///       onTap: (i) => setState(() => _index = i),
 ///       items: [
-///         LiquidGlassNavItem(icon: Icons.home, label: 'Home'),
-///         LiquidGlassNavItem(icon: Icons.search, label: 'Search'),
+///         LiquidGlassNavItem(icon: Icon(Icons.home), label: 'Home'),
+///         LiquidGlassNavItem(icon: Icon(Icons.search), label: 'Search'),
 ///       ],
 ///     ),
 ///   ),
@@ -328,8 +328,6 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
               'badge': item.badge,
               'iosSystemImage': item.iosSystemImage,
               'iosSelectedSystemImage': item.iosSelectedSystemImage,
-              'iconCodePoint': item.icon.codePoint,
-              'activeIconCodePoint': item.activeIcon?.codePoint,
             },
         ],
         'currentIndex': widget.currentIndex,
@@ -1032,10 +1030,7 @@ class _DockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isActive ? activeColor : inactiveColor;
-    final fallbackIcon = isActive ? (item.activeIcon ?? item.icon) : item.icon;
-    final icon = isActive
-        ? (item.activeAndroidIcon ?? item.androidIcon)
-        : item.androidIcon;
+    final icon = isActive ? (item.activeIcon ?? item.icon) : item.icon;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -1053,7 +1048,7 @@ class _DockItem extends StatelessWidget {
                   data: IconThemeData(color: color, size: 25),
                   child: DefaultTextStyle.merge(
                     style: TextStyle(color: color),
-                    child: icon ?? Icon(fallbackIcon),
+                    child: icon,
                   ),
                 ),
               ),
@@ -1101,40 +1096,28 @@ class _DockItem extends StatelessWidget {
 class LiquidGlassNavItem {
   /// Describes one destination in a [LiquidGlassNavBar].
   ///
-  /// [icon] and [label] provide cross-platform fallbacks. Android can replace
-  /// the icon with arbitrary widgets through [androidIcon] and
-  /// [activeAndroidIcon]. iOS can use explicit SF Symbol names through
+  /// [icon] and [activeIcon] are Flutter widgets used by the Android and
+  /// fallback renderers. Native iOS uses SF Symbol names from
   /// [iosSystemImage] and [iosSelectedSystemImage].
   const LiquidGlassNavItem({
     required this.icon,
     this.activeIcon,
-    this.androidIcon,
-    this.activeAndroidIcon,
     required this.label,
     this.badge,
     this.iosSystemImage,
     this.iosSelectedSystemImage,
   });
 
-  /// Material icon used by the Flutter fallback and for automatic SF Symbol
-  /// mapping when no platform-specific icon is supplied.
-  final IconData icon;
-
-  /// Optional icon shown when this item is selected.
-  final IconData? activeIcon;
-
-  /// Optional widget rendered by the Flutter fallback nav bar on Android and
-  /// other non-iOS platforms.
+  /// Widget displayed by the Android and fallback renderers.
   ///
-  /// If omitted, [icon] is rendered as a normal [Icon]. The widget inherits an
-  /// [IconTheme] and [DefaultTextStyle] with the current active/inactive color.
-  final Widget? androidIcon;
+  /// It inherits the current [IconTheme] and [DefaultTextStyle], so omit an
+  /// explicit colour when the widget should follow active/inactive styling.
+  final Widget icon;
 
-  /// Optional widget rendered by the Flutter fallback nav bar when selected.
+  /// Optional widget displayed while selected.
   ///
-  /// If omitted, [androidIcon] is reused. If both widget fields are omitted,
-  /// [activeIcon] falls back to [icon].
-  final Widget? activeAndroidIcon;
+  /// When omitted, [icon] is reused.
+  final Widget? activeIcon;
 
   /// Text displayed below the icon when the bar shows labels.
   final String label;
@@ -1146,12 +1129,11 @@ class LiquidGlassNavItem {
 
   /// Optional SF Symbol name used by the native iOS tab bar.
   ///
-  /// If omitted, the plugin maps common Material icons to SF Symbols.
+  /// If omitted, native iOS displays the `circle` SF Symbol.
   final String? iosSystemImage;
 
   /// Optional selected-state SF Symbol name used by the native iOS tab bar.
   ///
-  /// When omitted, [iosSystemImage] or the automatic Material-icon mapping is
-  /// reused.
+  /// When omitted, [iosSystemImage] is reused, including its `circle` fallback.
   final String? iosSelectedSystemImage;
 }

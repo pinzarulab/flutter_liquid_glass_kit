@@ -114,17 +114,14 @@ class _GlassShowcaseState extends State<GlassShowcase> {
                     ),
                 items: const [
                   LiquidGlassNavItem(
-                    icon: Icons.home_outlined,
-                    activeIcon: Icons.home,
+                    icon: Icon(Icons.home_outlined),
+                    activeIcon: Icon(Icons.home),
                     label: 'Home',
                     iosSystemImage: 'house',
                     iosSelectedSystemImage: 'house.fill',
                   ),
                   LiquidGlassNavItem(
-                    icon: Icons.search,
-                    label: 'Search',
-                    badge: 3,
-                    androidIcon: SizedBox.square(
+                    icon: SizedBox.square(
                       dimension: 25,
                       child: Center(
                         child: Text(
@@ -136,18 +133,20 @@ class _GlassShowcaseState extends State<GlassShowcase> {
                         ),
                       ),
                     ),
+                    label: 'Search',
+                    badge: 3,
                     iosSystemImage: 'magnifyingglass',
                   ),
                   LiquidGlassNavItem(
-                    icon: Icons.favorite_outline,
-                    activeIcon: Icons.favorite,
+                    icon: Icon(Icons.favorite_outline),
+                    activeIcon: Icon(Icons.favorite),
                     label: 'Saved',
                     iosSystemImage: 'heart',
                     iosSelectedSystemImage: 'heart.fill',
                   ),
                   LiquidGlassNavItem(
-                    icon: Icons.person_outline,
-                    activeIcon: Icons.person,
+                    icon: Icon(Icons.person_outline),
+                    activeIcon: Icon(Icons.person),
                     label: 'Profile',
                     iosSystemImage: 'person',
                     iosSelectedSystemImage: 'person.fill',
