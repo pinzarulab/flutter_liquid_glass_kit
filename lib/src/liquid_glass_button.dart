@@ -26,6 +26,7 @@ class LiquidGlassButton extends StatefulWidget {
     required this.child,
     this.onPressed,
     LiquidGlassSettings? settings,
+    this.androidColor,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     this.isLoading = false,
@@ -41,6 +42,13 @@ class LiquidGlassButton extends StatefulWidget {
   /// Set to null to disable interaction and render a subdued tint.
   final VoidCallback? onPressed;
   final LiquidGlassSettings? _settings;
+
+  /// Optional solid Android color for this button.
+  ///
+  /// This overrides inherited [LiquidGlassSettings.androidColor] and disables
+  /// Android glass effects for this button. It has no effect on other
+  /// platforms.
+  final Color? androidColor;
 
   /// The locally supplied settings, or [LiquidGlassSettings.matteLight] when
   /// no local settings were supplied.
@@ -120,10 +128,15 @@ class _LiquidGlassButtonState extends State<LiquidGlassButton>
 
   @override
   Widget build(BuildContext context) {
-    final effectiveSettings = LiquidGlassSettings.resolve(
+    var effectiveSettings = LiquidGlassSettings.resolve(
       context,
       widget._settings,
     );
+    if (widget.androidColor != null) {
+      effectiveSettings = effectiveSettings.copyWith(
+        androidColor: widget.androidColor,
+      );
+    }
     return Semantics(
       button: true,
       enabled: _isEnabled,

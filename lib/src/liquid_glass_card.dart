@@ -26,6 +26,7 @@ class LiquidGlassCard extends StatelessWidget {
     super.key,
     required this.child,
     LiquidGlassSettings? settings,
+    this.androidColor,
     this.borderRadius = const BorderRadius.all(Radius.circular(24)),
     this.width,
     this.height,
@@ -36,6 +37,12 @@ class LiquidGlassCard extends StatelessWidget {
   /// Content painted above the glass surface.
   final Widget child;
   final LiquidGlassSettings? _settings;
+
+  /// Optional solid Android color for this card.
+  ///
+  /// This overrides inherited [LiquidGlassSettings.androidColor] and disables
+  /// Android glass effects for this card. It has no effect on other platforms.
+  final Color? androidColor;
 
   /// The locally supplied settings, or [LiquidGlassSettings.matteLight] when
   /// no local settings were supplied.
@@ -62,7 +69,12 @@ class LiquidGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
+    var effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
+    if (androidColor != null) {
+      effectiveSettings = effectiveSettings.copyWith(
+        androidColor: androidColor,
+      );
+    }
     return Padding(
       padding: margin,
       child: PlatformGlass(

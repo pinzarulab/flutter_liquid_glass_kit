@@ -13,6 +13,7 @@ class SavedPage extends StatelessWidget {
       title: 'Saved Surfaces',
       leadingEmoji: '💜',
       subtitle: 'A different layout for testing nav transitions',
+      settings: const LiquidGlassSettings(androidColor: Color(0xFF355C68)),
       children: [
         const SectionLabel('Pinned Components'),
         const SizedBox(height: 12),
@@ -34,6 +35,7 @@ class SavedPage extends StatelessWidget {
           settings: const LiquidGlassSettings(
             tintColor: Color(0xFF9333EA),
             tintOpacity: 0.30,
+            androidColor: Color(0xFF694A83),
           ),
           child: const Text(
             'Saved page uses a grid and tinted summary card so route changes are '

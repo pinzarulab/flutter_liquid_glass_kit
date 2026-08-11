@@ -17,11 +17,17 @@ void main() {
 
   test('settings preserve a supplied Android glass colour', () {
     const colour = Color(0xFF6750A4);
-    const settings = LiquidGlassSettings(tintColor: colour, tintOpacity: 0.3);
+    const solidColour = Color(0xFF263238);
+    const settings = LiquidGlassSettings(
+      tintColor: colour,
+      androidColor: solidColour,
+      tintOpacity: 0.3,
+    );
 
     final updated = settings.copyWith(blurSigma: 28);
 
     expect(updated.tintColor, colour);
+    expect(updated.androidColor, solidColour);
     expect(updated.tintOpacity, 0.3);
     expect(updated.blurSigma, 28);
   });
@@ -141,6 +147,67 @@ void main() {
     );
 
     expect(find.byType(FallbackGlass), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('solid Android color skips every glass effect', (tester) async {
+    const solidColour = Color(0xFF355C68);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LiquidGlassCard(
+          key: ValueKey('solid-card'),
+          androidColor: solidColour,
+          child: SizedBox(width: 80, height: 40),
+        ),
+      ),
+    );
+
+    final card = find.byKey(const ValueKey('solid-card'));
+    final solidBox = find.descendant(
+      of: card,
+      matching: find.byType(ColoredBox),
+    );
+    expect(solidBox, findsOneWidget);
+    expect(tester.widget<ColoredBox>(solidBox).color, solidColour);
+    expect(find.descendant(of: card, matching: find.byType(BackdropFilter)),
+        findsNothing);
+    expect(find.descendant(of: card, matching: find.byType(DecoratedBox)),
+        findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('page solid color is inherited and component color overrides it',
+      (tester) async {
+    const pageColour = Color(0xFF355C68);
+    const buttonColour = Color(0xFF694A83);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LiquidGlassBackdropGroup(
+          settings: LiquidGlassSettings(androidColor: pageColour),
+          child: Column(
+            children: [
+              LiquidGlassCard(
+                key: ValueKey('page-card'),
+                child: Text('Card'),
+              ),
+              LiquidGlassButton(
+                key: ValueKey('local-button'),
+                androidColor: buttonColour,
+                onPressed: _noopVoid,
+                child: Text('Button'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      _fallbackSettingsUnder(tester, 'page-card').androidColor,
+      pageColour,
+    );
+    expect(
+      _fallbackSettingsUnder(tester, 'local-button').androidColor,
+      buttonColour,
+    );
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('glass text field keeps editing in Flutter', (tester) async {

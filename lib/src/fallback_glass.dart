@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'liquid_glass_settings.dart';
@@ -39,6 +40,24 @@ class FallbackGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final androidColor =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+            ? settings.androidColor
+            : null;
+    if (androidColor != null) {
+      return SizedBox(
+        width: width,
+        height: height,
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: ColoredBox(
+            color: androidColor,
+            child: child,
+          ),
+        ),
+      );
+    }
+
     final performance = _BackdropPerformanceScope.maybeOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final highContrast = MediaQuery.highContrastOf(context);

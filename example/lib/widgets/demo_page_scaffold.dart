@@ -8,20 +8,20 @@ class DemoPageScaffold extends StatelessWidget {
     required this.subtitle,
     required this.children,
     this.leadingEmoji,
+    this.settings,
   });
 
   final String title;
   final String subtitle;
   final String? leadingEmoji;
   final List<Widget> children;
+  final LiquidGlassSettings? settings;
 
   @override
   Widget build(BuildContext context) {
     return LiquidGlassBackdropGroup(
       disableBlurWhileScrolling: false,
-      settings: LiquidGlassSettings(
-          androidBlurSigma: 4
-      ),
+      settings: settings ?? const LiquidGlassSettings(androidBlurSigma: 4),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),
         child: Column(

@@ -1,3 +1,9 @@
+## 1.4.0
+
+- Add exact solid-color Android rendering with no blur, gradient, border, or shadow.
+- Add `androidColor` shortcuts to cards and buttons.
+- Support page-level solid Android styles through existing settings scopes and backdrop groups, while preserving per-component overrides.
+
 ## 1.3.1
 
 - Make `LiquidGlassNavItem.icon` and `activeIcon` Widget-only and remove Material code-point and Android-specific icon fields.

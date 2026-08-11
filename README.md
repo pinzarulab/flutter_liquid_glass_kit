@@ -240,6 +240,18 @@ LiquidGlassBackdropGroup(
 )
 ```
 
+Page-specific settings use the same boundary. Every descendant component
+inherits the page color unless it supplies local settings:
+
+```dart
+LiquidGlassBackdropGroup(
+  settings: const LiquidGlassSettings(
+    androidColor: Color(0xFF355C68),
+  ),
+  child: const SavedPage(),
+)
+```
+
 Settings resolve in this order:
 
 1. Settings passed directly to a card, button, nav bar, or `PlatformGlass`.
@@ -263,6 +275,7 @@ const LiquidGlassCard(
 | Parameter | Default | Behavior |
 |---|---:|---|
 | `tintColor` | `null` | Custom surface color. Null selects an adaptive matte tint on the fallback. |
+| `androidColor` | `null` | Exact solid Android color. When set, skips blur, gradient, border, and shadow. Ignored on other platforms. |
 | `tintOpacity` | `0.15` | Tint strength from `0.0` to `1.0`. Saturated colors usually work well at `0.20-0.40`. |
 | `blurSigma` | `20` | Requested backdrop blur. Forwarded to native iOS and capped on Android. |
 | `androidBlurSigma` | `8` | Maximum Android blur. Set to `0` for a fast matte-only surface. |
@@ -288,6 +301,36 @@ const LiquidGlassSettings(
 ```
 
 ## Android performance
+
+For maximum performance, provide `androidColor`. Android then paints one solid
+color and skips all glass effects. Cards and buttons also expose this as a
+direct per-component shortcut:
+
+```dart
+LiquidGlassBackdropGroup(
+  settings: const LiquidGlassSettings(
+    androidColor: Color(0xFF263238),
+  ),
+  child: ListView(
+    children: const [
+      LiquidGlassCard(child: Text('Inherited page color')),
+      LiquidGlassCard(
+        androidColor: Color(0xFF00695C),
+        child: Text('Card override'),
+      ),
+      LiquidGlassButton(
+        androidColor: Color(0xFF3949AB),
+        onPressed: null,
+        child: Text('Button override'),
+      ),
+    ],
+  ),
+)
+```
+
+On iOS these components continue using native glass. To opt one Android
+component back into glass inside a solid page scope, pass local settings with
+`androidColor` omitted.
 
 Wrap scrollable sections containing several non-overlapping glass surfaces in
 `LiquidGlassBackdropGroup`. It shares backdrop input and, by default, pauses

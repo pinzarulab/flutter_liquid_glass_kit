@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 /// On iOS, the supported values are forwarded to the native glass surface.
 /// On Android, they control the Flutter matte-glass fallback. Set [tintColor]
 /// to use a coloured glass surface; leave it null for adaptive matte glass.
+/// Set [androidColor] to use a faster solid Android surface with no glass
+/// effects.
 class LiquidGlassSettings {
   /// Creates an immutable Liquid Glass visual configuration.
   ///
@@ -14,6 +16,7 @@ class LiquidGlassSettings {
   /// native surfaces use the closest available system material treatment.
   const LiquidGlassSettings({
     this.tintColor,
+    this.androidColor,
     this.tintOpacity = 0.15,
     this.blurSigma = 20.0,
     this.androidBlurSigma = 8.0,
@@ -29,6 +32,14 @@ class LiquidGlassSettings {
   /// On Android this is the colour requested by the caller. If it is omitted,
   /// the fallback selects an adaptive light or dark matte colour.
   final Color? tintColor;
+
+  /// Optional exact color for a solid Android surface.
+  ///
+  /// When non-null on Android, the renderer skips backdrop blur, tint layers,
+  /// gradients, borders, and shadows. This is the lowest-cost rendering mode
+  /// for long lists and animation-heavy screens. It has no effect on iOS,
+  /// web, or desktop.
+  final Color? androidColor;
 
   /// Opacity of [tintColor], from `0.0` (transparent) to `1.0` (opaque).
   ///
@@ -102,10 +113,12 @@ class LiquidGlassSettings {
   /// Returns a copy with the supplied fields replaced.
   ///
   /// Omitted fields retain their current values. Because `null` means "keep the
-  /// current value", this method cannot clear an existing [tintColor]. Create a
-  /// new [LiquidGlassSettings] instance when an adaptive null tint is required.
+  /// current value", this method cannot clear an existing [tintColor] or
+  /// [androidColor]. Create a new [LiquidGlassSettings] instance when either
+  /// nullable color must be cleared.
   LiquidGlassSettings copyWith({
     Color? tintColor,
+    Color? androidColor,
     double? tintOpacity,
     double? blurSigma,
     double? androidBlurSigma,
@@ -117,6 +130,7 @@ class LiquidGlassSettings {
   }) {
     return LiquidGlassSettings(
       tintColor: tintColor ?? this.tintColor,
+      androidColor: androidColor ?? this.androidColor,
       tintOpacity: tintOpacity ?? this.tintOpacity,
       blurSigma: blurSigma ?? this.blurSigma,
       androidBlurSigma: androidBlurSigma ?? this.androidBlurSigma,
@@ -133,6 +147,7 @@ class LiquidGlassSettings {
     return identical(this, other) ||
         other is LiquidGlassSettings &&
             tintColor == other.tintColor &&
+            androidColor == other.androidColor &&
             tintOpacity == other.tintOpacity &&
             blurSigma == other.blurSigma &&
             androidBlurSigma == other.androidBlurSigma &&
@@ -146,6 +161,7 @@ class LiquidGlassSettings {
   @override
   int get hashCode => Object.hash(
         tintColor,
+        androidColor,
         tintOpacity,
         blurSigma,
         androidBlurSigma,

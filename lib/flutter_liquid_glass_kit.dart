@@ -7,7 +7,8 @@
 /// float above content. Use
 /// [LiquidGlassSettingsScope] for an app-wide baseline and
 /// [LiquidGlassBackdropGroup] around non-overlapping glass surfaces in a
-/// scrollable Android section.
+/// scrollable Android section. Set [LiquidGlassSettings.androidColor] for a
+/// low-cost solid Android surface with no glass effects.
 library flutter_liquid_glass_kit;
 
 export 'src/liquid_glass_card.dart';
