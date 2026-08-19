@@ -145,11 +145,13 @@ class FallbackGlass extends StatelessWidget {
   }
 }
 
-/// Shares backdrop input between non-overlapping fallback surfaces.
+/// Coordinates fallback surfaces inside one screen or section.
 ///
-/// Wrap a screen or section containing several non-overlapping Liquid Glass
-/// widgets with [LiquidGlassBackdropGroup] to reduce Android blur passes to
-/// one.
+/// By default, every glass surface uses an independent backdrop filter. This
+/// avoids Android rendering differences between the first visible grouped
+/// surface and its siblings while scrolling. Set [shareBackdropFilters] to
+/// true only when all surfaces are non-overlapping and grouped rendering has
+/// been validated on the supported Android devices.
 ///
 /// Do not wrap multiple [PageView] pages or route transitions in one group:
 /// pages can overlap while moving, which can make grouped backdrop filters
@@ -158,14 +160,12 @@ class FallbackGlass extends StatelessWidget {
 /// Native iOS surfaces are separate Flutter platform views, so they cannot
 /// share one SwiftUI `GlassEffectContainer` or native morphing namespace.
 class LiquidGlassBackdropGroup extends StatefulWidget {
-  /// Creates a shared backdrop and optional settings boundary around [child].
-  ///
-  /// Group only non-overlapping glass surfaces. Overlapping filters that share
-  /// a backdrop key can sample the wrong input and appear transparent.
+  /// Creates a performance and optional settings boundary around [child].
   const LiquidGlassBackdropGroup({
     super.key,
     required this.child,
     this.settings,
+    this.shareBackdropFilters = false,
     this.disableBlurWhileScrolling = true,
     this.disableShadowsWhileScrolling = true,
     this.effectRestoreDelay = const Duration(milliseconds: 80),
@@ -179,7 +179,16 @@ class LiquidGlassBackdropGroup extends StatefulWidget {
   /// A component that supplies its own `settings` overrides this value.
   final LiquidGlassSettings? settings;
 
-  /// Whether grouped fallback surfaces temporarily use their matte tint only
+  /// Whether descendant fallback surfaces share one backdrop-filter input.
+  ///
+  /// Sharing can reduce GPU work in long lists, but some Android renderers can
+  /// produce inconsistent brightness for the first visible grouped surface as
+  /// the scroll clip changes. The default independent filters prioritize
+  /// visual consistency. This setting has no effect on solid Android surfaces
+  /// or native iOS surfaces.
+  final bool shareBackdropFilters;
+
+  /// Whether fallback surfaces temporarily use their matte tint only
   /// while a descendant scrollable is moving.
   ///
   /// Disabling backdrop blur during motion substantially reduces Android GPU
@@ -262,6 +271,7 @@ class _LiquidGlassBackdropGroupState extends State<LiquidGlassBackdropGroup> {
       child: BackdropGroup(
         backdropKey: _backdropKey,
         child: _BackdropPerformanceScope(
+          shareBackdropFilters: widget.shareBackdropFilters,
           blurDisabled: widget.disableBlurWhileScrolling && _isScrolling,
           shadowsDisabled: widget.disableShadowsWhileScrolling && _isScrolling,
           child: scopedChild,
@@ -321,7 +331,10 @@ class _SharedBackdropFilterState extends State<_SharedBackdropFilter> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.enabled && BackdropGroup.of(context) != null) {
+    final performance = _BackdropPerformanceScope.maybeOf(context);
+    if (widget.enabled &&
+        (performance?.shareBackdropFilters ?? false) &&
+        BackdropGroup.of(context) != null) {
       return BackdropFilter.grouped(
         filter: _filter,
         enabled: !widget.blurDisabled,
@@ -338,11 +351,13 @@ class _SharedBackdropFilterState extends State<_SharedBackdropFilter> {
 
 class _BackdropPerformanceScope extends InheritedWidget {
   const _BackdropPerformanceScope({
+    required this.shareBackdropFilters,
     required this.blurDisabled,
     required this.shadowsDisabled,
     required super.child,
   });
 
+  final bool shareBackdropFilters;
   final bool blurDisabled;
   final bool shadowsDisabled;
 
@@ -353,7 +368,8 @@ class _BackdropPerformanceScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_BackdropPerformanceScope oldWidget) {
-    return blurDisabled != oldWidget.blurDisabled ||
+    return shareBackdropFilters != oldWidget.shareBackdropFilters ||
+        blurDisabled != oldWidget.blurDisabled ||
         shadowsDisabled != oldWidget.shadowsDisabled;
   }
 }

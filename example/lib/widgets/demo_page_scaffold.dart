@@ -21,6 +21,7 @@ class DemoPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlassBackdropGroup(
       disableBlurWhileScrolling: false,
+        disableShadowsWhileScrolling: false,
       settings: settings ?? const LiquidGlassSettings(androidBlurSigma: 4),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),

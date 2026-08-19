@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_liquid_glass_kit/flutter_liquid_glass_kit.dart';
 import 'package:flutter_liquid_glass_kit/src/fallback_glass.dart';
@@ -288,7 +289,55 @@ void main() {
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-  testWidgets('grouped Android glass skips expensive effects while scrolling', (
+  testWidgets('Android glass uses independent filters by default', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LiquidGlassBackdropGroup(
+          child: Column(
+            children: [
+              LiquidGlassCard(child: Text('First')),
+              LiquidGlassCard(child: Text('Second')),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final filters = _backdropFilterRenderObjects(tester).toList();
+    expect(filters, hasLength(2));
+    expect(filters.every((filter) => filter.backdropKey == null), isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('Android backdrop sharing remains available as an opt-in', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LiquidGlassBackdropGroup(
+          shareBackdropFilters: true,
+          child: Column(
+            children: [
+              LiquidGlassCard(child: Text('First')),
+              LiquidGlassCard(child: Text('Second')),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final groupKey =
+        tester.widget<BackdropGroup>(find.byType(BackdropGroup)).backdropKey;
+    final filters = _backdropFilterRenderObjects(tester).toList();
+    expect(filters, hasLength(2));
+    expect(
+      filters.every((filter) => identical(filter.backdropKey, groupKey)),
+      isTrue,
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('Android glass skips expensive effects while scrolling', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -943,4 +992,14 @@ bool _backdropFiltersEnabled(WidgetTester tester) {
     find.byType(BackdropFilter),
   );
   return filters.isNotEmpty && filters.every((filter) => filter.enabled);
+}
+
+Iterable<RenderBackdropFilter> _backdropFilterRenderObjects(
+  WidgetTester tester,
+) {
+  return find
+      .byType(BackdropFilter)
+      .evaluate()
+      .map((element) => element.renderObject)
+      .whereType<RenderBackdropFilter>();
 }

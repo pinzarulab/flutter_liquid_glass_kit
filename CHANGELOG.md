@@ -1,3 +1,7 @@
+## 1.4.1
+
+- Add shared Backdrop Filters that fixes Android rendering differences between the first visible grouped surface and its siblings while scrolling.
+
 ## 1.4.0
 
 - Add exact solid-color Android rendering with no blur, gradient, border, or shadow.

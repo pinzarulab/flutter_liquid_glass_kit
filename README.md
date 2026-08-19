@@ -332,13 +332,14 @@ On iOS these components continue using native glass. To opt one Android
 component back into glass inside a solid page scope, pass local settings with
 `androidColor` omitted.
 
-Wrap scrollable sections containing several non-overlapping glass surfaces in
-`LiquidGlassBackdropGroup`. It shares backdrop input and, by default, pauses
-blur and blurred shadows while scrolling while preserving tint, border, and
-content:
+Wrap scrollable sections containing several glass surfaces in
+`LiquidGlassBackdropGroup`. It coordinates inherited settings and, by default,
+pauses blur and blurred shadows while scrolling while preserving tint, border,
+and content. Backdrop filters remain independent for consistent Android color:
 
 ```dart
 LiquidGlassBackdropGroup(
+  shareBackdropFilters: false,
   disableBlurWhileScrolling: true,
   disableShadowsWhileScrolling: true,
   effectRestoreDelay: Duration(milliseconds: 80),
@@ -355,6 +356,11 @@ The short restore delay prevents expensive effects from being recreated
 between closely spaced scroll notifications. Set either disable flag to
 `false` to keep that effect active during motion, or set `effectRestoreDelay`
 to `Duration.zero` for immediate restoration. Other useful optimizations:
+
+- Set `shareBackdropFilters: true` only for non-overlapping surfaces after
+  checking target Android devices. It reduces blur passes, but grouped filters
+  can render the first visible surface with different brightness on some
+  Android renderers while scroll clipping changes.
 
 - Lower `androidBlurSigma` to `6-8`, or `0` for matte-only rendering.
 - Reduce `shadowBlurRadius` or set `shadowOpacity` to `0` in long lists.
