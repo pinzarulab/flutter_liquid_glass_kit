@@ -21,7 +21,7 @@ class DemoPageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlassBackdropGroup(
       disableBlurWhileScrolling: false,
-        disableShadowsWhileScrolling: false,
+      disableShadowsWhileScrolling: false,
       settings: settings ?? const LiquidGlassSettings(androidBlurSigma: 4),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),
@@ -30,19 +30,12 @@ class DemoPageScaffold extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 4),
             Text(
               leadingEmoji == null ? subtitle : '$leadingEmoji  $subtitle',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.6),
-              ),
+              style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 40),
             ...children,
