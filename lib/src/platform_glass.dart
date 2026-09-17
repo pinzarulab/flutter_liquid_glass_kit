@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'liquid_glass_settings.dart';
 import 'fallback_glass.dart';
+import 'native_glass_group.dart';
 
 /// Whether glass widgets use the native iOS renderer on this platform.
 ///
@@ -32,6 +33,7 @@ class PlatformGlass extends StatelessWidget {
     required this.borderRadius,
     LiquidGlassSettings? settings,
     this.useSharedBackdrop = true,
+    this.interactive = false,
     this.width,
     this.height,
   }) : _settings = settings;
@@ -56,6 +58,11 @@ class PlatformGlass extends StatelessWidget {
   /// This flag has no effect on the native iOS renderer.
   final bool useSharedBackdrop;
 
+  /// Whether native iOS should apply interactive glass response.
+  ///
+  /// Cards are passive by default. Buttons and editable controls enable this.
+  final bool interactive;
+
   /// Optional fixed width. When null, normal parent constraints are used.
   final double? width;
 
@@ -66,9 +73,22 @@ class PlatformGlass extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
     if (isNativeLiquidGlassSupported) {
+      final group = LiquidGlassNativeGroupScope.maybeOf(context);
+      if (group != null) {
+        return LiquidGlassGroupedSurface(
+          controller: group,
+          borderRadius: borderRadius,
+          settings: effectiveSettings,
+          interactive: interactive,
+          width: width,
+          height: height,
+          child: child,
+        );
+      }
       return _NativeLiquidGlass(
         borderRadius: borderRadius,
         settings: effectiveSettings,
+        interactive: interactive,
         width: width,
         height: height,
         child: child,
@@ -94,6 +114,7 @@ class _NativeLiquidGlass extends StatelessWidget {
     required this.child,
     required this.borderRadius,
     required this.settings,
+    required this.interactive,
     this.width,
     this.height,
   });
@@ -101,6 +122,7 @@ class _NativeLiquidGlass extends StatelessWidget {
   final Widget child;
   final BorderRadius borderRadius;
   final LiquidGlassSettings settings;
+  final bool interactive;
   final double? width;
   final double? height;
 
@@ -114,6 +136,8 @@ class _NativeLiquidGlass extends StatelessWidget {
             : null,
         'tintOpacity': settings.tintOpacity,
         'blurSigma': settings.blurSigma,
+        'iosGlassStyle': settings.iosGlassStyle.name,
+        'interactive': interactive,
       };
 
   @override

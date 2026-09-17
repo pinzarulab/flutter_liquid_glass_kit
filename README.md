@@ -210,12 +210,31 @@ strong opaque tint, Increase Contrast strengthens tint and borders, and Reduce
 Motion disables interactive glass and nav spring motion. iOS 16-25 uses the
 same per-corner shape and accessibility adaptations with system material.
 
-Each `PlatformGlass` is a separate `UiKitView`, so sibling surfaces cannot
-share one `GlassEffectContainer` or native morphing namespace. Wrapping each
-isolated view in its own container adds rendering work without enabling
-grouping, so the package deliberately avoids that. True cross-widget morphing
-requires a future single native host that receives all Flutter surface
-geometries.
+Wrap a page's surfaces in `LiquidGlassBackdropGroup` to use one native
+`UiKitView` and one `UIHostingController` for the page. Descendant cards,
+buttons, text fields, and direct `PlatformGlass` widgets register their current
+geometry and style with that host. On iOS 26+, the host renders them together
+inside one SwiftUI `GlassEffectContainer`; off-screen surfaces are omitted from
+native updates.
+
+```dart
+LiquidGlassBackdropGroup(
+  child: ListView(
+    padding: const EdgeInsets.all(16),
+    children: const [
+      LiquidGlassCard(child: Text('Account')),
+      SizedBox(height: 12),
+      LiquidGlassCard(child: Text('Privacy')),
+    ],
+  ),
+)
+```
+
+Use one group per visible page. Do not place a single group around multiple
+`PageView` pages or overlapping route transitions. A `PlatformGlass` outside a
+group remains supported and creates its own native view for compatibility.
+Cards are passive glass; buttons and enabled text fields opt into native
+interactive response.
 
 ## Shared settings
 
@@ -276,6 +295,7 @@ const LiquidGlassCard(
 |---|---:|---|
 | `tintColor` | `null` | Custom surface color. Null selects an adaptive matte tint on the fallback. |
 | `androidColor` | `null` | Exact solid Android color. When set, skips blur, gradient, border, and shadow. Ignored on other platforms. |
+| `iosGlassStyle` | `LiquidGlassIOSStyle.system` | Native custom-surface style. `system` follows the user's Clear/Opaque preference; `clear` always requests clear glass. Native navigation remains system-managed. |
 | `tintOpacity` | `0.15` | Tint strength from `0.0` to `1.0`. Saturated colors usually work well at `0.20-0.40`. |
 | `blurSigma` | `20` | Requested backdrop blur. Forwarded to native iOS and capped on Android. |
 | `androidBlurSigma` | `8` | Maximum Android blur. Set to `0` for a fast matte-only surface. |
@@ -297,6 +317,25 @@ For a visible custom tint, provide both color and opacity:
 const LiquidGlassSettings(
   tintColor: Color(0xFF9333EA),
   tintOpacity: 0.30,
+)
+```
+
+To follow the user's iOS Liquid Glass appearance preference, keep the default
+system style. Force clear glass only when the design explicitly requires it:
+
+```dart
+const LiquidGlassCard(
+  settings: LiquidGlassSettings(
+    iosGlassStyle: LiquidGlassIOSStyle.system,
+  ),
+  child: Text('Follows Clear or Opaque'),
+)
+
+const LiquidGlassCard(
+  settings: LiquidGlassSettings(
+    iosGlassStyle: LiquidGlassIOSStyle.clear,
+  ),
+  child: Text('Always clear'),
 )
 ```
 

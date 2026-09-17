@@ -180,6 +180,7 @@ class LiquidGlassTextField extends StatelessWidget {
 
     return PlatformGlass(
       borderRadius: borderRadius,
+      interactive: enabled ?? true,
       settings: effectiveSettings,
       useSharedBackdrop: useSharedBackdrop,
       width: width,

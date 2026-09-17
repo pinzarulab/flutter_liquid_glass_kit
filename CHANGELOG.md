@@ -1,3 +1,10 @@
+## 1.5.0
+
+- Add a page-level native iOS glass host through `LiquidGlassBackdropGroup`, using one `UiKitView`, one `UIHostingController`, and one SwiftUI `GlassEffectContainer` for multiple surfaces.
+- Batch visible surface geometry and appearance updates during scrolling while omitting off-screen surfaces.
+- Add configurable native iOS system and clear glass styles.
+- Preserve standalone native surface rendering outside a backdrop group.
+
 ## 1.4.1
 
 - Add shared Backdrop Filters that fixes Android rendering differences between the first visible grouped surface and its siblings while scrolling.

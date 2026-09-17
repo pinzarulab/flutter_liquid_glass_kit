@@ -153,6 +153,7 @@ class _LiquidGlassButtonState extends State<LiquidGlassButton>
           ),
           child: PlatformGlass(
             borderRadius: widget.borderRadius,
+            interactive: _isEnabled,
             settings: _isEnabled
                 ? effectiveSettings
                 : effectiveSettings.copyWith(

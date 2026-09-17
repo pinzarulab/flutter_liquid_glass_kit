@@ -1,5 +1,16 @@
 import 'package:flutter/material.dart';
 
+/// Native SwiftUI Liquid Glass style used by custom iOS surfaces.
+enum LiquidGlassIOSStyle {
+  /// Uses `Glass.regular`, allowing iOS to follow the user's Clear or Opaque
+  /// Liquid Glass appearance preference.
+  system,
+
+  /// Uses `Glass.clear`, keeping the custom surface clear independently of the
+  /// user's system appearance preference.
+  clear,
+}
+
 /// Shared visual configuration for all Liquid Glass widgets.
 ///
 /// On iOS, the supported values are forwarded to the native glass surface.
@@ -17,6 +28,7 @@ class LiquidGlassSettings {
   const LiquidGlassSettings({
     this.tintColor,
     this.androidColor,
+    this.iosGlassStyle = LiquidGlassIOSStyle.system,
     this.tintOpacity = 0.15,
     this.blurSigma = 20.0,
     this.androidBlurSigma = 8.0,
@@ -40,6 +52,14 @@ class LiquidGlassSettings {
   /// for long lists and animation-heavy screens. It has no effect on iOS,
   /// web, or desktop.
   final Color? androidColor;
+
+  /// Native appearance used by custom iOS glass surfaces.
+  ///
+  /// [LiquidGlassIOSStyle.system] follows the user's Clear or Opaque system
+  /// preference. [LiquidGlassIOSStyle.clear] always requests clear glass.
+  /// Native [LiquidGlassNavBar] rendering uses `UITabBar` and remains managed
+  /// automatically by iOS.
+  final LiquidGlassIOSStyle iosGlassStyle;
 
   /// Opacity of [tintColor], from `0.0` (transparent) to `1.0` (opaque).
   ///
@@ -119,6 +139,7 @@ class LiquidGlassSettings {
   LiquidGlassSettings copyWith({
     Color? tintColor,
     Color? androidColor,
+    LiquidGlassIOSStyle? iosGlassStyle,
     double? tintOpacity,
     double? blurSigma,
     double? androidBlurSigma,
@@ -131,6 +152,7 @@ class LiquidGlassSettings {
     return LiquidGlassSettings(
       tintColor: tintColor ?? this.tintColor,
       androidColor: androidColor ?? this.androidColor,
+      iosGlassStyle: iosGlassStyle ?? this.iosGlassStyle,
       tintOpacity: tintOpacity ?? this.tintOpacity,
       blurSigma: blurSigma ?? this.blurSigma,
       androidBlurSigma: androidBlurSigma ?? this.androidBlurSigma,
@@ -148,6 +170,7 @@ class LiquidGlassSettings {
         other is LiquidGlassSettings &&
             tintColor == other.tintColor &&
             androidColor == other.androidColor &&
+            iosGlassStyle == other.iosGlassStyle &&
             tintOpacity == other.tintOpacity &&
             blurSigma == other.blurSigma &&
             androidBlurSigma == other.androidBlurSigma &&
@@ -162,6 +185,7 @@ class LiquidGlassSettings {
   int get hashCode => Object.hash(
         tintColor,
         androidColor,
+        iosGlassStyle,
         tintOpacity,
         blurSigma,
         androidBlurSigma,

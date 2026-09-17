@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'liquid_glass_settings.dart';
+import 'native_glass_group.dart';
 
 /// Pure-Flutter glassmorphism renderer.
 ///
@@ -157,8 +158,9 @@ class FallbackGlass extends StatelessWidget {
 /// pages can overlap while moving, which can make grouped backdrop filters
 /// sample the wrong backdrop and visibly change color during the transition.
 ///
-/// Native iOS surfaces are separate Flutter platform views, so they cannot
-/// share one SwiftUI `GlassEffectContainer` or native morphing namespace.
+/// On iOS, this widget creates one page-level native host. Descendant glass
+/// surfaces contribute their geometry and appearance to a shared SwiftUI
+/// `GlassEffectContainer` instead of creating one platform view per surface.
 class LiquidGlassBackdropGroup extends StatefulWidget {
   /// Creates a performance and optional settings boundary around [child].
   const LiquidGlassBackdropGroup({
@@ -185,7 +187,7 @@ class LiquidGlassBackdropGroup extends StatefulWidget {
   /// produce inconsistent brightness for the first visible grouped surface as
   /// the scroll clip changes. The default independent filters prioritize
   /// visual consistency. This setting has no effect on solid Android surfaces
-  /// or native iOS surfaces.
+  /// or the shared native iOS host.
   final bool shareBackdropFilters;
 
   /// Whether fallback surfaces temporarily use their matte tint only
@@ -266,17 +268,21 @@ class _LiquidGlassBackdropGroupState extends State<LiquidGlassBackdropGroup> {
             settings: widget.settings!,
             child: widget.child,
           );
+    final groupedChild = BackdropGroup(
+      backdropKey: _backdropKey,
+      child: _BackdropPerformanceScope(
+        shareBackdropFilters: widget.shareBackdropFilters,
+        blurDisabled: widget.disableBlurWhileScrolling && _isScrolling,
+        shadowsDisabled: widget.disableShadowsWhileScrolling && _isScrolling,
+        child: scopedChild,
+      ),
+    );
+    final platformChild = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+        ? LiquidGlassNativeBackdropHost(child: groupedChild)
+        : groupedChild;
     return NotificationListener<ScrollNotification>(
       onNotification: _handleScrollNotification,
-      child: BackdropGroup(
-        backdropKey: _backdropKey,
-        child: _BackdropPerformanceScope(
-          shareBackdropFilters: widget.shareBackdropFilters,
-          blurDisabled: widget.disableBlurWhileScrolling && _isScrolling,
-          shadowsDisabled: widget.disableShadowsWhileScrolling && _isScrolling,
-          child: scopedChild,
-        ),
-      ),
+      child: platformChild,
     );
   }
 }

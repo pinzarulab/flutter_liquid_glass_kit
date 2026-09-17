@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import SwiftUI
+import Combine
 
 // MARK: - Plugin Entry Point
 
@@ -8,8 +9,10 @@ public class LiquidGlassKitPlugin: NSObject, FlutterPlugin {
   public static func register(with registrar: FlutterPluginRegistrar) {
     let messenger = registrar.messenger()
     let surfaceFactory = LiquidGlassSurfaceFactory(messenger: messenger)
+    let groupFactory = LiquidGlassGroupFactory(messenger: messenger)
     let navBarFactory = LiquidGlassNavBarFactory(messenger: messenger)
     registrar.register(surfaceFactory, withId: "flutter_liquid_glass_kit/glass_surface")
+    registrar.register(groupFactory, withId: "flutter_liquid_glass_kit/glass_group")
     registrar.register(navBarFactory, withId: "flutter_liquid_glass_kit/native_nav_bar")
   }
 }
@@ -38,6 +41,31 @@ class LiquidGlassSurfaceFactory: NSObject, FlutterPlatformViewFactory {
 
   public func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
     return FlutterStandardMessageCodec.sharedInstance()
+  }
+}
+
+class LiquidGlassGroupFactory: NSObject, FlutterPlatformViewFactory {
+  private let messenger: FlutterBinaryMessenger
+
+  init(messenger: FlutterBinaryMessenger) {
+    self.messenger = messenger
+    super.init()
+  }
+
+  func create(
+    withFrame frame: CGRect,
+    viewIdentifier viewId: Int64,
+    arguments args: Any?
+  ) -> FlutterPlatformView {
+    LiquidGlassGroupView(
+      frame: frame,
+      viewIdentifier: viewId,
+      messenger: messenger
+    )
+  }
+
+  public func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
+    FlutterStandardMessageCodec.sharedInstance()
   }
 }
 
@@ -87,6 +115,8 @@ class LiquidGlassSurfaceView: NSObject, FlutterPlatformView {
     let radii = LiquidGlassCornerRadii(arguments: args)
     let tintOpacity = liquidGlassUnitValue(args?["tintOpacity"], fallback: 0.15)
     let tintHex = args?["tintColorHex"] as? String
+    let iosGlassStyle = args?["iosGlassStyle"] as? String ?? "system"
+    let interactive = args?["interactive"] as? Bool ?? false
     let rootView: AnyView
 
     if #available(iOS 26.0, *) {
@@ -94,7 +124,9 @@ class LiquidGlassSurfaceView: NSObject, FlutterPlatformView {
         LiquidGlassSurface(
           cornerRadii: radii,
           tintOpacity: tintOpacity,
-          tintColorHex: tintHex
+          tintColorHex: tintHex,
+          iosGlassStyle: iosGlassStyle,
+          interactive: interactive
         )
       )
     } else {
@@ -116,6 +148,150 @@ class LiquidGlassSurfaceView: NSObject, FlutterPlatformView {
     _view = controller.view
   }
 
+}
+
+// MARK: - Page-Level Native Glass Host
+
+private struct LiquidGlassSurfaceDescriptor: Identifiable {
+  let id: Int64
+  let frame: CGRect
+  let cornerRadii: LiquidGlassCornerRadii
+  let tintOpacity: Double
+  let tintColorHex: String?
+  let iosGlassStyle: String
+  let interactive: Bool
+
+  init?(arguments: [String: Any]) {
+    guard let identifier = arguments["id"] as? NSNumber else { return nil }
+    let width = liquidGlassNonnegativeValue(arguments["width"], fallback: 0)
+    let height = liquidGlassNonnegativeValue(arguments["height"], fallback: 0)
+    guard width > 0, height > 0 else { return nil }
+
+    id = identifier.int64Value
+    frame = CGRect(
+      x: liquidGlassFiniteNumber(arguments["x"], fallback: 0),
+      y: liquidGlassFiniteNumber(arguments["y"], fallback: 0),
+      width: width,
+      height: height
+    )
+    cornerRadii = LiquidGlassCornerRadii(arguments: arguments)
+    tintOpacity = liquidGlassUnitValue(arguments["tintOpacity"], fallback: 0.15)
+    tintColorHex = arguments["tintColorHex"] as? String
+    iosGlassStyle = arguments["iosGlassStyle"] as? String ?? "system"
+    interactive = arguments["interactive"] as? Bool ?? false
+  }
+}
+
+private final class LiquidGlassGroupModel: ObservableObject {
+  @Published var surfaces: [LiquidGlassSurfaceDescriptor] = []
+}
+
+private struct LegacyLiquidGlassGroup: View {
+  @ObservedObject var model: LiquidGlassGroupModel
+
+  var body: some View {
+    ZStack(alignment: .topLeading) {
+      Color.clear
+      ForEach(model.surfaces) { surface in
+        LegacyLiquidGlassSurface(
+          cornerRadii: surface.cornerRadii,
+          tintOpacity: surface.tintOpacity,
+          tintColorHex: surface.tintColorHex
+        )
+        .frame(width: surface.frame.width, height: surface.frame.height)
+        .offset(x: surface.frame.minX, y: surface.frame.minY)
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+  }
+}
+
+@available(iOS 26.0, *)
+private struct LiquidGlassGroup: View {
+  @ObservedObject var model: LiquidGlassGroupModel
+
+  var body: some View {
+    GlassEffectContainer(spacing: 0) {
+      ZStack(alignment: .topLeading) {
+        Color.clear
+        ForEach(model.surfaces) { surface in
+          LiquidGlassSurface(
+            cornerRadii: surface.cornerRadii,
+            tintOpacity: surface.tintOpacity,
+            tintColorHex: surface.tintColorHex,
+            iosGlassStyle: surface.iosGlassStyle,
+            interactive: surface.interactive
+          )
+          .frame(width: surface.frame.width, height: surface.frame.height)
+          .offset(x: surface.frame.minX, y: surface.frame.minY)
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+  }
+}
+
+private class LiquidGlassGroupView: NSObject, FlutterPlatformView {
+  private let container: UIView
+  private let channel: FlutterMethodChannel
+  private let model = LiquidGlassGroupModel()
+  private var hostingController: UIViewController?
+
+  init(
+    frame: CGRect,
+    viewIdentifier viewId: Int64,
+    messenger: FlutterBinaryMessenger
+  ) {
+    container = UIView(frame: frame)
+    channel = FlutterMethodChannel(
+      name: "flutter_liquid_glass_kit/glass_group_\(viewId)",
+      binaryMessenger: messenger
+    )
+    super.init()
+    setup(frame: frame)
+  }
+
+  deinit {
+    channel.setMethodCallHandler(nil)
+  }
+
+  func view() -> UIView { container }
+
+  private func setup(frame: CGRect) {
+    container.backgroundColor = .clear
+    container.isOpaque = false
+    container.clipsToBounds = true
+
+    let rootView: AnyView
+    if #available(iOS 26.0, *) {
+      rootView = AnyView(LiquidGlassGroup(model: model))
+    } else {
+      rootView = AnyView(LegacyLiquidGlassGroup(model: model))
+    }
+
+    let controller = UIHostingController(rootView: rootView)
+    controller.view.frame = container.bounds
+    controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    controller.view.backgroundColor = .clear
+    controller.view.isOpaque = false
+    container.addSubview(controller.view)
+    hostingController = controller
+
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(nil)
+        return
+      }
+      guard call.method == "setSurfaces" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+
+      let rawSurfaces = call.arguments as? [[String: Any]] ?? []
+      self.model.surfaces = rawSurfaces.compactMap(LiquidGlassSurfaceDescriptor.init)
+      result(nil)
+    }
+  }
 }
 
 // MARK: - Native iOS Tab Bar
@@ -537,6 +713,8 @@ struct LiquidGlassSurface: View {
   let cornerRadii: LiquidGlassCornerRadii
   let tintOpacity: Double
   let tintColorHex: String?
+  let iosGlassStyle: String
+  let interactive: Bool
 
   private var tintColor: Color {
     Color(uiColor: liquidGlassColor(from: tintColorHex ?? "#FFFFFFFF"))
@@ -544,6 +722,10 @@ struct LiquidGlassSurface: View {
 
   private var effectiveTintOpacity: Double {
     min(max(tintOpacity + (contrast == .increased ? 0.20 : 0), 0), 1)
+  }
+
+  private var glassStyle: Glass {
+    iosGlassStyle == "clear" ? Glass.clear : Glass.regular
   }
 
   var body: some View {
@@ -560,9 +742,9 @@ struct LiquidGlassSurface: View {
     } else {
       Color.clear
         .glassEffect(
-          Glass.clear
+          glassStyle
             .tint(tintColor.opacity(effectiveTintOpacity))
-            .interactive(!reduceMotion),
+            .interactive(interactive && !reduceMotion),
           in: shape
         )
     }

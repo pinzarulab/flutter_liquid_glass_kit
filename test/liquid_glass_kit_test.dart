@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_liquid_glass_kit/flutter_liquid_glass_kit.dart';
 import 'package:flutter_liquid_glass_kit/src/fallback_glass.dart';
+import 'package:flutter_liquid_glass_kit/src/native_glass_group.dart';
 
 void main() {
   tearDown(() => debugDefaultTargetPlatformOverride = null);
@@ -36,6 +37,16 @@ void main() {
   test('settings use the balanced Android blur cap by default', () {
     expect(const LiquidGlassSettings().androidBlurSigma, 8);
     expect(LiquidGlassSettings.matteDark.androidBlurSigma, 8);
+  });
+
+  test('iOS glass style follows system preference by default', () {
+    const settings = LiquidGlassSettings();
+
+    expect(settings.iosGlassStyle, LiquidGlassIOSStyle.system);
+    expect(
+      settings.copyWith(iosGlassStyle: LiquidGlassIOSStyle.clear).iosGlassStyle,
+      LiquidGlassIOSStyle.clear,
+    );
   });
 
   test('equivalent settings use value equality', () {
@@ -149,6 +160,31 @@ void main() {
 
     expect(find.byType(FallbackGlass), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+  testWidgets('iOS group uses one native host for multiple surfaces', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 640,
+          child: LiquidGlassBackdropGroup(
+            child: Column(
+              children: [
+                LiquidGlassCard(child: Text('First')),
+                LiquidGlassCard(child: Text('Second')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(UiKitView), findsOneWidget);
+    expect(find.byType(LiquidGlassGroupedSurface), findsNWidgets(2));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('solid Android color skips every glass effect', (tester) async {
     const solidColour = Color(0xFF355C68);

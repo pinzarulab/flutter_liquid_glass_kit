@@ -6,9 +6,10 @@
 /// [LiquidGlassNavBar]. Use [LiquidGlassFloatingNavBar] when navigation should
 /// float above content. Use
 /// [LiquidGlassSettingsScope] for an app-wide baseline and
-/// [LiquidGlassBackdropGroup] around non-overlapping glass surfaces in a
-/// scrollable Android section. Set [LiquidGlassSettings.androidColor] for a
-/// low-cost solid Android surface with no glass effects.
+/// [LiquidGlassBackdropGroup] around each page of non-overlapping glass
+/// surfaces. This shares one native host on iOS and can coordinate backdrop
+/// work on Android. Set [LiquidGlassSettings.androidColor] for a low-cost solid
+/// Android surface with no glass effects.
 library flutter_liquid_glass_kit;
 
 export 'src/liquid_glass_card.dart';
