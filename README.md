@@ -1,13 +1,21 @@
 # flutter_liquid_glass_kit
 
 Platform-adaptive Liquid Glass components for Flutter. The package uses native
-SwiftUI glass on iOS and an optimized Flutter matte-glass renderer elsewhere.
+SwiftUI glass on iOS and macOS, with an optimized Flutter renderer elsewhere.
 
 | Platform | Renderer |
 |---|---|
 | iOS 26+ | Native SwiftUI `.glassEffect()` |
 | iOS 16-25 | Native system-material fallback |
-| Android, web, desktop | Flutter blur, tint, highlight, border, and shadow |
+| Android | Optimized Flutter blur, tint, highlight, border, and shadow |
+| macOS 26+ | Native SwiftUI `.glassEffect()` |
+| macOS 12-15 | Native SwiftUI system-material fallback |
+| Windows | Flutter desktop blur, tint, highlight, border, and shadow |
+| Web | Flutter blur, tint, highlight, border, and shadow |
+
+macOS uses a native AppKit/SwiftUI plugin with CocoaPods and Swift Package
+Manager support. Windows remains a Dart-only plugin implementation and needs no
+native plugin binary or extra platform setup.
 
 ## Installation
 
@@ -64,10 +72,11 @@ LiquidGlassTextField(
 ```
 
 The editable field remains a Flutter `TextField`, while its background uses
-native SwiftUI glass on iOS and the optimized fallback elsewhere. This keeps
-Flutter controllers, focus nodes, formatters, selection, autofill, and keyboard
-behavior available without a second native text-input bridge. Provide borders
-through `decoration` when needed; otherwise the glass outline is used.
+native SwiftUI glass on Apple platforms and the optimized fallback elsewhere.
+This keeps Flutter controllers, focus nodes, formatters, selection, autofill,
+and keyboard behavior available without a second native text-input bridge.
+Provide borders through `decoration` when needed; otherwise the glass outline
+is used.
 
 ### Navigation bar
 
@@ -140,9 +149,10 @@ LiquidGlassNavBar(
 )
 ```
 
-Available styles are `liquid`, `elastic`, `pulse`, and `smooth`. The value can
-be changed at runtime like any other widget property. For complete control,
-provide a geometry resolver:
+Available styles are `liquid`, `elastic`, `pulse`, and `smooth`. These fallback
+dock animations also apply on macOS and Windows. The value can be changed at
+runtime like any other widget property. For complete control, provide a
+geometry resolver:
 
 ```dart
 LiquidGlassNavBar(
@@ -163,11 +173,12 @@ LiquidGlassNavBar(
 The resolver receives transition progress, hold progress, signed drag velocity,
 item dimensions, travel distance, and resting geometry. Keep it fast and free
 of side effects because it runs every animation frame. These options affect the
-Flutter/Android indicator; native iOS continues using its system animation.
+Flutter fallback indicator used by Android, macOS, Windows, and web; native iOS
+continues using its system animation.
 
-iOS and Android can optionally shrink the bar while a vertical scrollable
-moves down, then restore it after enough upward movement or an idle delay. One
-configuration applies to both platforms:
+iOS, Android, macOS, and Windows can optionally shrink the bar while a vertical
+scrollable moves down, then restore it after enough upward movement or an idle
+delay. One configuration applies across these platforms:
 
 ```dart
 LiquidGlassNavBar(
@@ -185,7 +196,8 @@ LiquidGlassNavBar(
 ```
 
 Use `iosScrollConfiguration` or `androidScrollConfiguration` only when one
-platform needs different values. The former
+platform needs different values. macOS and Windows use the shared
+`scrollConfiguration`. The former
 `LiquidGlassIOSNavBarScrollConfiguration` and
 `LiquidGlassAndroidNavBarScrollConfiguration` names remain as deprecated type
 aliases.
@@ -193,8 +205,8 @@ aliases.
 The behavior also expands at the top and when an item is selected. It listens
 through the nearest `ScrollNotificationObserver`; a `Scaffold` supplies one
 automatically. Wrap custom layouts in `ScrollNotificationObserver` when no
-`Scaffold` ancestor is present. Each configuration is ignored outside its
-target platform, and both are ignored on web and desktop.
+`Scaffold` ancestor is present. Platform overrides are ignored outside their
+target platform. Scroll resizing is disabled on web.
 
 `icon` and `activeIcon` accept arbitrary widgets and inherit the active
 `IconTheme` and `DefaultTextStyle`. Do not set an explicit colour when the
@@ -202,20 +214,21 @@ widget should follow selected/unselected styling. Native iOS uses SF Symbol
 names from `iosSystemImage` and `iosSelectedSystemImage`; when omitted, it uses
 the neutral `circle` symbol.
 
-## Native iOS fidelity
+## Native Apple fidelity
 
-Native surfaces preserve all four Flutter corner radii. On iOS 26 each surface
-uses SwiftUI `glassEffect` directly; Reduce Transparency replaces blur with a
-strong opaque tint, Increase Contrast strengthens tint and borders, and Reduce
-Motion disables interactive glass and nav spring motion. iOS 16-25 uses the
-same per-corner shape and accessibility adaptations with system material.
+Native surfaces preserve all four Flutter corner radii. On iOS 26 and macOS 26
+each surface uses SwiftUI `glassEffect` directly; Reduce Transparency replaces
+blur with a strong opaque tint, Increase Contrast strengthens tint and borders,
+and Reduce Motion disables interactive glass. Earlier supported Apple systems
+use the same per-corner shape and accessibility adaptations with system
+material.
 
 Wrap a page's surfaces in `LiquidGlassBackdropGroup` to use one native
-`UiKitView` and one `UIHostingController` for the page. Descendant cards,
-buttons, text fields, and direct `PlatformGlass` widgets register their current
-geometry and style with that host. On iOS 26+, the host renders them together
-inside one SwiftUI `GlassEffectContainer`; off-screen surfaces are omitted from
-native updates.
+platform view and one SwiftUI hosting controller for the page: `UiKitView` on
+iOS or `AppKitView` on macOS. Descendant cards, buttons, text fields, and direct
+`PlatformGlass` widgets register their current geometry and style with that
+host. On Apple OS 26+, the host renders them together inside one SwiftUI
+`GlassEffectContainer`; off-screen surfaces are omitted from native updates.
 
 ```dart
 LiquidGlassBackdropGroup(
@@ -295,10 +308,10 @@ const LiquidGlassCard(
 |---|---:|---|
 | `tintColor` | `null` | Custom surface color. Null selects an adaptive matte tint on the fallback. |
 | `androidColor` | `null` | Exact solid Android color. When set, skips blur, gradient, border, and shadow. Ignored on other platforms. |
-| `iosGlassStyle` | `LiquidGlassIOSStyle.system` | Native custom-surface style. `system` follows the user's Clear/Opaque preference; `clear` always requests clear glass. Native navigation remains system-managed. |
+| `iosGlassStyle` | `LiquidGlassIOSStyle.system` | Native Apple custom-surface style. `system` follows the user's Clear/Opaque preference; `clear` always requests clear glass. Native iOS navigation remains system-managed. |
 | `tintOpacity` | `0.15` | Tint strength from `0.0` to `1.0`. Saturated colors usually work well at `0.20-0.40`. |
-| `blurSigma` | `20` | Requested backdrop blur. Forwarded to native iOS and capped on Android. |
-| `androidBlurSigma` | `8` | Maximum Android blur. Set to `0` for a fast matte-only surface. |
+| `blurSigma` | `20` | Requested backdrop blur. Forwarded to native Apple surfaces and capped on Flutter fallback platforms. |
+| `androidBlurSigma` | `8` | Maximum fallback blur. Named for compatibility; set to `0` for a fast matte-only surface. |
 | `borderOpacity` | `0.25` | Fallback border-highlight opacity. |
 | `borderWidth` | `1` | Fallback border width in logical pixels. |
 | `shadowOpacity` | `0.12` | Fallback drop-shadow opacity. Set to `0` on dense screens to reduce paint cost. |
@@ -320,7 +333,7 @@ const LiquidGlassSettings(
 )
 ```
 
-To follow the user's iOS Liquid Glass appearance preference, keep the default
+To follow the user's Apple Liquid Glass appearance preference, keep the default
 system style. Force clear glass only when the design explicitly requires it:
 
 ```dart
@@ -367,7 +380,7 @@ LiquidGlassBackdropGroup(
 )
 ```
 
-On iOS these components continue using native glass. To opt one Android
+On iOS and macOS these components continue using native glass. To opt one Android
 component back into glass inside a solid page scope, pass local settings with
 `androidColor` omitted.
 
@@ -417,18 +430,21 @@ filtering for its floating fallback surface.
 
 ```dart
 if (isNativeLiquidGlassSupported) {
-  print('Native iOS surface');
+  print('Native Apple surface');
 } else {
   print('Flutter fallback surface');
 }
 ```
 
-This value is true on iOS even before iOS 26 because those systems still use a
-native material fallback. Android, web, and desktop return false.
+This value is true on iOS and macOS even before OS 26 because supported older
+systems still use a native material fallback. Android, Windows, web, and other
+platforms return false.
 
 ## Requirements
 
 - Flutter 3.19 or newer
 - Dart 3.0 or newer
 - iOS 16+; iOS 26+ uses native Liquid Glass
+- macOS 12+; macOS 26+ uses native Liquid Glass
 - Android API 21+
+- Windows desktop targets supported by Flutter 3.19+

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -9,7 +10,7 @@ import 'liquid_glass_settings.dart';
 const _groupViewType = 'flutter_liquid_glass_kit/glass_group';
 const _groupChannelPrefix = 'flutter_liquid_glass_kit/glass_group_';
 
-/// Internal coordinator for one page-level native iOS glass host.
+/// Internal coordinator for one page-level native Apple glass host.
 ///
 /// Kept outside the public library exports. [LiquidGlassBackdropGroup] owns the
 /// controller and descendant [PlatformGlass] widgets register through the
@@ -154,17 +155,24 @@ class _LiquidGlassNativeBackdropHostState
 
   @override
   Widget build(BuildContext context) {
+    final nativeView = defaultTargetPlatform == TargetPlatform.macOS
+        ? AppKitView(
+            viewType: _groupViewType,
+            hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+            onPlatformViewCreated: _controller.attachPlatformView,
+          )
+        : UiKitView(
+            viewType: _groupViewType,
+            hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+            onPlatformViewCreated: _controller.attachPlatformView,
+          );
     return Stack(
       key: _controller.hostKey,
       fit: StackFit.passthrough,
       children: [
         Positioned.fill(
           child: IgnorePointer(
-            child: UiKitView(
-              viewType: _groupViewType,
-              hitTestBehavior: PlatformViewHitTestBehavior.transparent,
-              onPlatformViewCreated: _controller.attachPlatformView,
-            ),
+            child: nativeView,
           ),
         ),
         LiquidGlassNativeGroupScope(

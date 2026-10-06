@@ -9,12 +9,18 @@ import 'package:flutter_liquid_glass_kit/src/native_glass_group.dart';
 void main() {
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
-  test('routes only iOS to the native surface', () {
+  test('routes Apple platforms to native surfaces', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     expect(isNativeLiquidGlassSupported, isFalse);
 
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     expect(isNativeLiquidGlassSupported, isTrue);
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    expect(isNativeLiquidGlassSupported, isTrue);
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    expect(isNativeLiquidGlassSupported, isFalse);
   });
 
   test('settings preserve a supplied Android glass colour', () {
@@ -161,6 +167,47 @@ void main() {
     expect(find.byType(FallbackGlass), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
+  testWidgets(
+    'uses native AppKit glass on macOS',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: PlatformGlass(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            child: SizedBox(width: 80, height: 40),
+          ),
+        ),
+      );
+
+      expect(find.byType(AppKitView), findsOneWidget);
+      expect(find.byType(UiKitView), findsNothing);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
+    'uses the Flutter fallback on Windows',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: PlatformGlass(
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+            child: SizedBox(width: 80, height: 40),
+          ),
+        ),
+      );
+
+      expect(find.byType(FallbackGlass), findsOneWidget);
+      expect(find.byType(AppKitView), findsNothing);
+      expect(find.byType(UiKitView), findsNothing);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  test('Windows Dart plugin registration is available', () {
+    expect(FlutterLiquidGlassKitWindowsPlugin.registerWith, returnsNormally);
+  });
+
   testWidgets('iOS group uses one native host for multiple surfaces', (
     tester,
   ) async {
@@ -185,6 +232,31 @@ void main() {
     expect(find.byType(UiKitView), findsOneWidget);
     expect(find.byType(LiquidGlassGroupedSurface), findsNWidgets(2));
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('macOS group uses one native host for multiple surfaces', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 640,
+          child: LiquidGlassBackdropGroup(
+            child: Column(
+              children: [
+                LiquidGlassCard(child: Text('First')),
+                LiquidGlassCard(child: Text('Second')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(AppKitView), findsOneWidget);
+    expect(find.byType(LiquidGlassGroupedSurface), findsNWidgets(2));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('solid Android color skips every glass effect', (tester) async {
     const solidColour = Color(0xFF355C68);
@@ -638,7 +710,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets(
-    'Android nav bar uses an upward threshold and expands after idle',
+    'fallback nav bar uses an upward threshold and expands after idle',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -696,7 +768,11 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       expect(scale(), 1);
     },
-    variant: TargetPlatformVariant.only(TargetPlatform.android),
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+    }),
   );
 
   testWidgets('Android nav indicator grows beyond the bar during a jump', (

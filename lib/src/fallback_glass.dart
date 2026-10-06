@@ -10,8 +10,9 @@ import 'native_glass_group.dart';
 
 /// Pure-Flutter glassmorphism renderer.
 ///
-/// Used on Android. It renders adaptive matte glass when [tintColor] is null,
-/// or coloured glass when the caller provides a tint.
+/// Used on Android, Windows, web, and other non-Apple platforms. It renders
+/// adaptive matte glass when [tintColor] is null, or coloured glass when the
+/// caller provides a tint.
 class FallbackGlass extends StatelessWidget {
   const FallbackGlass({
     super.key,
@@ -158,8 +159,8 @@ class FallbackGlass extends StatelessWidget {
 /// pages can overlap while moving, which can make grouped backdrop filters
 /// sample the wrong backdrop and visibly change color during the transition.
 ///
-/// On iOS, this widget creates one page-level native host. Descendant glass
-/// surfaces contribute their geometry and appearance to a shared SwiftUI
+/// On iOS and macOS, this widget creates one page-level native host. Descendant
+/// glass surfaces contribute their geometry and appearance to a shared SwiftUI
 /// `GlassEffectContainer` instead of creating one platform view per surface.
 class LiquidGlassBackdropGroup extends StatefulWidget {
   /// Creates a performance and optional settings boundary around [child].
@@ -187,7 +188,7 @@ class LiquidGlassBackdropGroup extends StatefulWidget {
   /// produce inconsistent brightness for the first visible grouped surface as
   /// the scroll clip changes. The default independent filters prioritize
   /// visual consistency. This setting has no effect on solid Android surfaces
-  /// or the shared native iOS host.
+  /// or shared native Apple hosts.
   final bool shareBackdropFilters;
 
   /// Whether fallback surfaces temporarily use their matte tint only
@@ -277,7 +278,10 @@ class _LiquidGlassBackdropGroupState extends State<LiquidGlassBackdropGroup> {
         child: scopedChild,
       ),
     );
-    final platformChild = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+    final usesNativeAppleHost = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.macOS);
+    final platformChild = usesNativeAppleHost
         ? LiquidGlassNativeBackdropHost(child: groupedChild)
         : groupedChild;
     return NotificationListener<ScrollNotification>(

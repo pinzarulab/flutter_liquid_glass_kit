@@ -1,17 +1,18 @@
 /// Platform-adaptive Liquid Glass components for Flutter.
 ///
-/// The package renders native SwiftUI glass on iOS and an optimized Flutter
-/// matte-glass fallback on Android, web, and desktop. Start with
+/// The package renders native SwiftUI glass on iOS and macOS, with an optimized
+/// Flutter matte-glass fallback on Android, Windows, web, and other platforms. Start with
 /// [LiquidGlassCard], [LiquidGlassButton], [LiquidGlassTextField], or
 /// [LiquidGlassNavBar]. Use [LiquidGlassFloatingNavBar] when navigation should
 /// float above content. Use
 /// [LiquidGlassSettingsScope] for an app-wide baseline and
 /// [LiquidGlassBackdropGroup] around each page of non-overlapping glass
-/// surfaces. This shares one native host on iOS and can coordinate backdrop
-/// work on Android. Set [LiquidGlassSettings.androidColor] for a low-cost solid
-/// Android surface with no glass effects.
+/// surfaces. This shares one native host on Apple platforms and can coordinate backdrop
+/// work on fallback platforms. Set [LiquidGlassSettings.androidColor] for a
+/// low-cost solid Android surface with no glass effects.
 library flutter_liquid_glass_kit;
 
+export 'src/desktop_plugin.dart';
 export 'src/liquid_glass_card.dart';
 export 'src/liquid_glass_button.dart';
 export 'src/liquid_glass_nav_bar.dart';

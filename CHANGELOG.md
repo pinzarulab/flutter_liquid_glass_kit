@@ -1,3 +1,12 @@
+## Unreleased
+
+- Add native macOS Liquid Glass through AppKit platform views and SwiftUI, with native system material on macOS versions before 26.
+- Add a shared page-level macOS `GlassEffectContainer` host to avoid one `NSHostingController` per surface.
+- Add CocoaPods and Swift Package Manager support for the macOS plugin.
+- Add Windows support through a lightweight Dart-only plugin registration and the optimized Flutter glass renderer.
+- Enable shared navigation-bar scroll resizing on macOS and Windows.
+- Enable Swift Package Manager explicitly in the example app so iOS and macOS native plugins resolve without global Flutter configuration.
+
 ## 1.5.0
 
 - Add a page-level native iOS glass host through `LiquidGlassBackdropGroup`, using one `UiKitView`, one `UIHostingController`, and one SwiftUI `GlassEffectContainer` for multiple surfaces.

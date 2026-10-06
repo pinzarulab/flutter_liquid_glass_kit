@@ -6,17 +6,19 @@ import 'liquid_glass_settings.dart';
 import 'fallback_glass.dart';
 import 'native_glass_group.dart';
 
-/// Whether glass widgets use the native iOS renderer on this platform.
+/// Whether glass widgets use a native Apple renderer on this platform.
 ///
 /// The native view itself uses the OS availability check for Liquid Glass. On
-/// iOS versions before Liquid Glass is available, it provides a native material
-/// fallback. Android, web, and desktop platforms return false and use the
-/// Flutter fallback.
+/// iOS and macOS versions before Liquid Glass is available, it provides a
+/// native material fallback. Android, Windows, web, and other platforms return
+/// false and use the Flutter fallback.
 bool get isNativeLiquidGlassSupported {
-  return !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  return !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 }
 
-/// Core widget that routes to the native iOS PlatformView or Android's
+/// Core widget that routes to a native Apple platform view or the
 /// cross-platform matte-glass renderer.
 ///
 /// You typically don't use this directly — prefer [LiquidGlassCard],
@@ -55,10 +57,10 @@ class PlatformGlass extends StatelessWidget {
   /// Whether Android fallback surfaces can use [BackdropFilter.grouped].
   ///
   /// Disable this for floating surfaces that may overlap other glass widgets.
-  /// This flag has no effect on the native iOS renderer.
+  /// This flag has no effect on native Apple renderers.
   final bool useSharedBackdrop;
 
-  /// Whether native iOS should apply interactive glass response.
+  /// Whether native Apple platforms should apply interactive glass response.
   ///
   /// Cards are passive by default. Buttons and editable controls enable this.
   final bool interactive;
@@ -106,7 +108,7 @@ class PlatformGlass extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Native iOS implementation via UiKitView + SwiftUI
+// Native Apple implementation via UIKit/AppKit + SwiftUI
 // ---------------------------------------------------------------------------
 
 class _NativeLiquidGlass extends StatelessWidget {
@@ -142,6 +144,17 @@ class _NativeLiquidGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final nativeView = defaultTargetPlatform == TargetPlatform.macOS
+        ? AppKitView(
+            viewType: 'flutter_liquid_glass_kit/glass_surface',
+            creationParams: _creationParams,
+            creationParamsCodec: const StandardMessageCodec(),
+          )
+        : UiKitView(
+            viewType: 'flutter_liquid_glass_kit/glass_surface',
+            creationParams: _creationParams,
+            creationParamsCodec: const StandardMessageCodec(),
+          );
     return SizedBox(
       width: width,
       height: height,
@@ -154,11 +167,7 @@ class _NativeLiquidGlass extends StatelessWidget {
         children: [
           // The native SwiftUI glass surface sits behind the Flutter child
           Positioned.fill(
-            child: UiKitView(
-              viewType: 'flutter_liquid_glass_kit/glass_surface',
-              creationParams: _creationParams,
-              creationParamsCodec: const StandardMessageCodec(),
-            ),
+            child: nativeView,
           ),
           // Flutter child renders on top (hit-testing preserved)
           child,

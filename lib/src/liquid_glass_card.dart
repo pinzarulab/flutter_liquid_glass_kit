@@ -5,7 +5,7 @@ import 'platform_glass.dart';
 
 /// A glass-effect container card.
 ///
-/// On iOS 26+ renders via native SwiftUI `.glassEffect()`.
+/// On iOS 26+ and macOS 26+ renders via native SwiftUI `.glassEffect()`.
 /// On Android and older iOS uses a blur + tint fallback.
 ///
 /// ```dart

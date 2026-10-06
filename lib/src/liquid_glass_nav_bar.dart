@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'liquid_glass_settings.dart';
 import 'platform_glass.dart';
 
-/// Built-in motion styles for the Android navigation indicator.
+/// Built-in motion styles for the Flutter fallback navigation indicator.
 enum LiquidGlassNavBarAnimationStyle {
   /// Liquid vertical stretching based on travel distance and drag speed.
   liquid,
@@ -23,7 +23,7 @@ enum LiquidGlassNavBarAnimationStyle {
   smooth,
 }
 
-/// Resolves the Android navigation indicator geometry for one animation frame.
+/// Resolves fallback navigation indicator geometry for one animation frame.
 ///
 /// Return a rectangle in the navigation bar's local coordinate system. The
 /// callback must be fast and free of side effects because it runs every frame.
@@ -31,7 +31,7 @@ typedef LiquidGlassNavBarAnimationResolver = Rect Function(
   LiquidGlassNavBarAnimationState state,
 );
 
-/// Inputs available to a custom Android navigation indicator animation.
+/// Inputs available to a custom fallback navigation indicator animation.
 @immutable
 class LiquidGlassNavBarAnimationState {
   /// Creates an immutable indicator animation snapshot.
@@ -177,18 +177,18 @@ class LiquidGlassNavBar extends StatelessWidget {
   /// Whether labels are displayed below icons on both renderers.
   final bool showLabels;
 
-  /// Built-in Android indicator animation.
+  /// Built-in Flutter fallback indicator animation.
   ///
   /// Ignored when [androidAnimationResolver] is supplied.
   final LiquidGlassNavBarAnimationStyle androidAnimationStyle;
 
-  /// Optional custom Android indicator geometry resolver.
+  /// Optional custom Flutter fallback indicator geometry resolver.
   ///
   /// This callback takes precedence over [androidAnimationStyle]. It is ignored
   /// by the native iOS renderer.
   final LiquidGlassNavBarAnimationResolver? androidAnimationResolver;
 
-  /// Scroll-driven resizing shared by native iOS and Android.
+  /// Scroll-driven resizing shared by native iOS and fallback desktop/mobile.
   ///
   /// Platform overrides take precedence when supplied. When all three
   /// configuration values are null, scroll-driven resizing is disabled.
@@ -231,10 +231,11 @@ class LiquidGlassNavBar extends StatelessWidget {
       showLabels: showLabels,
       animationStyle: androidAnimationStyle,
       animationResolver: androidAnimationResolver,
-      scrollConfiguration:
-          !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+      scrollConfiguration: kIsWeb
+          ? null
+          : defaultTargetPlatform == TargetPlatform.android
               ? androidScrollConfiguration ?? scrollConfiguration
-              : null,
+              : scrollConfiguration,
     );
   }
 }
@@ -419,8 +420,9 @@ class _NativeIOSNavBarState extends State<_NativeIOSNavBar> {
 /// Configures navigation-bar resizing in response to vertical scrolling.
 ///
 /// Pass an instance to [LiquidGlassNavBar.scrollConfiguration] to share the
-/// behavior across iOS and Android. Platform-specific overrides remain
-/// available when the two renderers need different values.
+/// behavior across iOS, Android, macOS, and Windows. Platform-specific mobile
+/// overrides remain available when the native and fallback renderers need
+/// different values.
 @immutable
 class LiquidGlassNavBarScrollConfiguration {
   /// Creates a scroll-resize configuration.
@@ -562,9 +564,9 @@ class _NavBarScrollBehavior {
   }
 }
 
-/// Shared floating dock. [PlatformGlass] supplies native Liquid Glass on iOS
-/// and the matte/tinted renderer on Android; the selection motion stays the
-/// same on both platforms.
+/// Shared floating dock. [PlatformGlass] supplies native glass on macOS and
+/// the matte/tinted renderer on Android, Windows, web, and other fallback
+/// platforms.
 class _LiquidGlassDock extends StatefulWidget {
   const _LiquidGlassDock({
     required this.items,
@@ -1096,8 +1098,8 @@ class _DockItem extends StatelessWidget {
 class LiquidGlassNavItem {
   /// Describes one destination in a [LiquidGlassNavBar].
   ///
-  /// [icon] and [activeIcon] are Flutter widgets used by the Android and
-  /// fallback renderers. Native iOS uses SF Symbol names from
+  /// [icon] and [activeIcon] are Flutter widgets used by fallback renderers.
+  /// Native iOS uses SF Symbol names from
   /// [iosSystemImage] and [iosSelectedSystemImage].
   const LiquidGlassNavItem({
     required this.icon,
@@ -1108,7 +1110,7 @@ class LiquidGlassNavItem {
     this.iosSelectedSystemImage,
   });
 
-  /// Widget displayed by the Android and fallback renderers.
+  /// Widget displayed by Flutter fallback renderers.
   ///
   /// It inherits the current [IconTheme] and [DefaultTextStyle], so omit an
   /// explicit colour when the widget should follow active/inactive styling.

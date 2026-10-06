@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// Native SwiftUI Liquid Glass style used by custom iOS surfaces.
+/// Native SwiftUI Liquid Glass style used by custom Apple surfaces.
 enum LiquidGlassIOSStyle {
-  /// Uses `Glass.regular`, allowing iOS to follow the user's Clear or Opaque
-  /// Liquid Glass appearance preference.
+  /// Uses `Glass.regular`, allowing iOS and macOS to follow the user's Clear or
+  /// Opaque Liquid Glass appearance preference.
   system,
 
   /// Uses `Glass.clear`, keeping the custom surface clear independently of the
@@ -13,18 +13,19 @@ enum LiquidGlassIOSStyle {
 
 /// Shared visual configuration for all Liquid Glass widgets.
 ///
-/// On iOS, the supported values are forwarded to the native glass surface.
-/// On Android, they control the Flutter matte-glass fallback. Set [tintColor]
-/// to use a coloured glass surface; leave it null for adaptive matte glass.
-/// Set [androidColor] to use a faster solid Android surface with no glass
-/// effects.
+/// On iOS and macOS, supported values are forwarded to the native glass
+/// surface. On Android, Windows, web, and other non-Apple platforms, they
+/// control the Flutter matte-glass fallback. Set [tintColor] to use a coloured
+/// glass surface; leave it null for adaptive matte glass. Set [androidColor] to
+/// use a faster solid Android surface with no glass effects.
 class LiquidGlassSettings {
   /// Creates an immutable Liquid Glass visual configuration.
   ///
-  /// Opacity values are expected to be between `0.0` and `1.0`. On Android,
-  /// the effective blur is the lower of [blurSigma] and [androidBlurSigma].
-  /// Shadow and border properties affect the Flutter fallback renderer; iOS
-  /// native surfaces use the closest available system material treatment.
+  /// Opacity values are expected to be between `0.0` and `1.0`. On Flutter
+  /// fallback platforms, the effective blur is the lower of [blurSigma] and
+  /// [androidBlurSigma]. Shadow and border properties affect the Flutter
+  /// fallback renderer; native Apple surfaces use the closest available system
+  /// material treatment.
   const LiquidGlassSettings({
     this.tintColor,
     this.androidColor,
@@ -56,9 +57,9 @@ class LiquidGlassSettings {
   /// Native appearance used by custom iOS glass surfaces.
   ///
   /// [LiquidGlassIOSStyle.system] follows the user's Clear or Opaque system
-  /// preference. [LiquidGlassIOSStyle.clear] always requests clear glass.
-  /// Native [LiquidGlassNavBar] rendering uses `UITabBar` and remains managed
-  /// automatically by iOS.
+  /// preference. [LiquidGlassIOSStyle.clear] always requests clear glass. The
+  /// setting also applies to custom native macOS surfaces. Native iOS
+  /// [LiquidGlassNavBar] rendering uses `UITabBar` and remains system-managed.
   final LiquidGlassIOSStyle iosGlassStyle;
 
   /// Opacity of [tintColor], from `0.0` (transparent) to `1.0` (opaque).
@@ -68,16 +69,17 @@ class LiquidGlassSettings {
 
   /// Requested Gaussian blur sigma for content behind the surface.
   ///
-  /// This value is forwarded to native iOS surfaces. Android additionally
-  /// caps it with [androidBlurSigma] to control GPU cost.
+  /// This value is forwarded to native Apple surfaces. Flutter fallback
+  /// platforms additionally cap it with [androidBlurSigma] to control GPU
+  /// cost.
   final double blurSigma;
 
-  /// Maximum blur used by the Android fallback renderer.
+  /// Maximum blur used by the Flutter fallback renderer.
   ///
-  /// Android backdrop blurs are substantially more expensive than the native
-  /// iOS material. The lower default keeps scrolling and selection animations
-  /// responsive while retaining the matte-glass appearance. Set to `0` to
-  /// disable Android backdrop blur entirely.
+  /// Named for backward compatibility with the original Android fallback.
+  /// The cap also applies on Windows, web, and other fallback platforms.
+  /// The lower default keeps scrolling and selection animations responsive.
+  /// Set to `0` to disable fallback backdrop blur entirely.
   final double androidBlurSigma;
 
   /// Opacity of the fallback renderer's white border highlight.
