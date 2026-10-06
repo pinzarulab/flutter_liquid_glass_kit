@@ -1,6 +1,6 @@
 name: flutter_liquid_glass_kit
 description: Platform-adaptive Liquid Glass UI kit with native SwiftUI rendering on Apple platforms and optimized Flutter fallbacks on Android, Windows, and web.
-version: 1.5.0
+version: 2.0.0
 homepage: https://github.com/pinzarulab/flutter_liquid_glass_kit
 repository: https://github.com/pinzarulab/flutter_liquid_glass_kit
 issue_tracker: https://github.com/pinzarulab/flutter_liquid_glass_kit/issues

@@ -1,4 +1,4 @@
-## Unreleased
+## 2.0.0
 
 - Add native macOS Liquid Glass through AppKit platform views and SwiftUI, with native system material on macOS versions before 26.
 - Add a shared page-level macOS `GlassEffectContainer` host to avoid one `NSHostingController` per surface.
