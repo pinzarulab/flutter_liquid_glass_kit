@@ -1,3 +1,9 @@
+## 2.0.1
+
+- Add `LiquidGlassRouteObserver` to switch covered native glass backgrounds to Flutter while sheets, dialogs, or pages are visible and restore native glass after their exit transitions.
+- Add `nativeGlassEnabled` to `LiquidGlassCard` and `PlatformGlass` so apps can switch rendering without remounting the child.
+- Honor `borderOpacity` and `borderWidth` for custom iOS strokes in legacy material and Reduce Transparency mode.
+
 ## 2.0.0
 
 - Add native macOS Liquid Glass through AppKit platform views and SwiftUI, with native system material on macOS versions before 26.

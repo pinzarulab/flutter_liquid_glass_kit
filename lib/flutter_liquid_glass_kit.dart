@@ -17,6 +17,7 @@ export 'src/liquid_glass_card.dart';
 export 'src/liquid_glass_button.dart';
 export 'src/liquid_glass_nav_bar.dart';
 export 'src/liquid_glass_settings.dart';
+export 'src/liquid_glass_route_observer.dart' show LiquidGlassRouteObserver;
 export 'src/liquid_glass_text_field.dart';
 export 'src/platform_glass.dart';
 export 'src/fallback_glass.dart'

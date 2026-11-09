@@ -448,3 +448,26 @@ platforms return false.
 - macOS 12+; macOS 26+ uses native Liquid Glass
 - Android API 21+
 - Windows desktop targets supported by Flutter 3.19+
+
+### Native glass under sheets and dialogs
+
+Register a `LiquidGlassRouteObserver()` in `MaterialApp.navigatorObservers`
+(or `Navigator.observers`). Use a separate instance for each nested navigator
+whose routes can cover glass. The observer switches covered glass backgrounds
+to the Flutter renderer until the covering routes finish leaving. It also
+handles a root dialog covering a nested navigator. Place each
+`LiquidGlassBackdropGroup` inside the route that owns its surfaces.
+
+For overlays managed outside a navigator, set
+`LiquidGlassCard(nativeGlassEnabled: false, child: ...)` while the overlay is
+visible, and restore it when the overlay finishes dismissing. `PlatformGlass`
+also accepts this flag. The Flutter child stays mounted during the switch.
+
+On iOS, `borderOpacity` and `borderWidth` control the package's strokes in
+legacy material and Reduce Transparency mode. SwiftUI draws the rim of its
+system glass effect.
+
+To compare with and without the workaround on iOS, run
+`flutter run --release -t lib/glass_overlay_repro.dart` from `example`. Try
+opening and dragging the opaque sheet, dismissing it, and opening a dialog
+above it. The switch at the top enables or disables the observer.

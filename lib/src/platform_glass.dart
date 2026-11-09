@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'liquid_glass_settings.dart';
+import 'liquid_glass_route_observer.dart';
 import 'fallback_glass.dart';
 import 'native_glass_group.dart';
 
@@ -36,6 +37,7 @@ class PlatformGlass extends StatelessWidget {
     LiquidGlassSettings? settings,
     this.useSharedBackdrop = true,
     this.interactive = false,
+    this.nativeGlassEnabled = true,
     this.width,
     this.height,
   }) : _settings = settings;
@@ -65,6 +67,11 @@ class PlatformGlass extends StatelessWidget {
   /// Cards are passive by default. Buttons and editable controls enable this.
   final bool interactive;
 
+  /// Whether this surface can use an Apple platform view.
+  ///
+  /// Set to false to force the Flutter renderer while keeping [child] mounted.
+  final bool nativeGlassEnabled;
+
   /// Optional fixed width. When null, normal parent constraints are used.
   final double? width;
 
@@ -75,25 +82,49 @@ class PlatformGlass extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveSettings = LiquidGlassSettings.resolve(context, _settings);
     if (isNativeLiquidGlassSupported) {
-      final group = LiquidGlassNativeGroupScope.maybeOf(context);
-      if (group != null) {
-        return LiquidGlassGroupedSurface(
-          controller: group,
-          borderRadius: borderRadius,
-          settings: effectiveSettings,
-          interactive: interactive,
-          width: width,
-          height: height,
-          child: child,
-        );
-      }
-      return _NativeLiquidGlass(
-        borderRadius: borderRadius,
-        settings: effectiveSettings,
-        interactive: interactive,
-        width: width,
-        height: height,
-        child: child,
+      return LiquidGlassRouteVisibility(
+        builder: (context, visible) {
+          final useNative = nativeGlassEnabled && visible;
+          final group = LiquidGlassNativeGroupScope.maybeOf(context);
+          final Widget background;
+          if (!useNative) {
+            background = FallbackGlass(
+              borderRadius: borderRadius,
+              settings: effectiveSettings,
+              useSharedBackdrop: useSharedBackdrop,
+              child: const SizedBox.expand(),
+            );
+          } else if (group != null) {
+            background = LiquidGlassGroupedSurface(
+              controller: group,
+              borderRadius: borderRadius,
+              settings: effectiveSettings,
+              interactive: interactive,
+              child: const SizedBox.expand(),
+            );
+          } else {
+            background = _NativeLiquidGlass(
+              borderRadius: borderRadius,
+              settings: effectiveSettings,
+              interactive: interactive,
+            );
+          }
+          return SizedBox(
+            width: width,
+            height: height,
+            child: Stack(
+              fit: StackFit.passthrough,
+              children: [
+                Positioned.fill(child: background),
+                ClipRRect(
+                  borderRadius: borderRadius,
+                  clipBehavior: useNative ? Clip.none : Clip.antiAlias,
+                  child: child,
+                ),
+              ],
+            ),
+          );
+        },
       );
     }
     return FallbackGlass(
@@ -113,20 +144,14 @@ class PlatformGlass extends StatelessWidget {
 
 class _NativeLiquidGlass extends StatelessWidget {
   const _NativeLiquidGlass({
-    required this.child,
     required this.borderRadius,
     required this.settings,
     required this.interactive,
-    this.width,
-    this.height,
   });
 
-  final Widget child;
   final BorderRadius borderRadius;
   final LiquidGlassSettings settings;
   final bool interactive;
-  final double? width;
-  final double? height;
 
   Map<String, dynamic> get _creationParams => {
         'topLeftRadius': borderRadius.topLeft.x,
@@ -138,41 +163,25 @@ class _NativeLiquidGlass extends StatelessWidget {
             : null,
         'tintOpacity': settings.tintOpacity,
         'blurSigma': settings.blurSigma,
+        'borderOpacity': settings.borderOpacity,
+        'borderWidth': settings.borderWidth,
         'iosGlassStyle': settings.iosGlassStyle.name,
         'interactive': interactive,
       };
 
   @override
   Widget build(BuildContext context) {
-    final nativeView = defaultTargetPlatform == TargetPlatform.macOS
+    return defaultTargetPlatform == TargetPlatform.macOS
         ? AppKitView(
             viewType: 'flutter_liquid_glass_kit/glass_surface',
             creationParams: _creationParams,
             creationParamsCodec: const StandardMessageCodec(),
           )
         : UiKitView(
+            key: ValueKey((settings.borderOpacity, settings.borderWidth)),
             viewType: 'flutter_liquid_glass_kit/glass_surface',
             creationParams: _creationParams,
             creationParamsCodec: const StandardMessageCodec(),
           );
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        // Let the Flutter child determine the height when this widget is used
-        // in a vertical scroll view. StackFit.expand would pass an unbounded
-        // height to both children, which prevents the child from being laid
-        // out. The native view is positioned after the stack has a real size.
-        fit: StackFit.passthrough,
-        children: [
-          // The native SwiftUI glass surface sits behind the Flutter child
-          Positioned.fill(
-            child: nativeView,
-          ),
-          // Flutter child renders on top (hit-testing preserved)
-          child,
-        ],
-      ),
-    );
   }
 }

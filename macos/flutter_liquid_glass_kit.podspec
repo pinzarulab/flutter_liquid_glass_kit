@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'flutter_liquid_glass_kit'
-  s.version          = '1.5.0'
+  s.version          = '2.0.1'
   s.summary          = 'Native Liquid Glass surfaces for Flutter on macOS.'
   s.description      = <<-DESC
 Native SwiftUI Liquid Glass surfaces and grouped page hosts for Flutter on macOS.

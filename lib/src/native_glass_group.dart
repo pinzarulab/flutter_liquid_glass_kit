@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import 'liquid_glass_settings.dart';
+import 'liquid_glass_route_observer.dart';
 
 const _groupViewType = 'flutter_liquid_glass_kit/glass_group';
 const _groupChannelPrefix = 'flutter_liquid_glass_kit/glass_group_';
@@ -46,6 +47,7 @@ class LiquidGlassNativeGroupController {
   void scheduleSync() {
     if (_disposed || _frameScheduled) return;
     _frameScheduled = true;
+    WidgetsBinding.instance.ensureVisualUpdate();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _frameScheduled = false;
       unawaited(_sync());
@@ -155,6 +157,10 @@ class _LiquidGlassNativeBackdropHostState
 
   @override
   Widget build(BuildContext context) {
+    return LiquidGlassRouteVisibility(builder: _buildHost);
+  }
+
+  Widget _buildHost(BuildContext context, bool visible) {
     final nativeView = defaultTargetPlatform == TargetPlatform.macOS
         ? AppKitView(
             viewType: _groupViewType,
@@ -172,7 +178,7 @@ class _LiquidGlassNativeBackdropHostState
       children: [
         Positioned.fill(
           child: IgnorePointer(
-            child: nativeView,
+            child: visible ? nativeView : null,
           ),
         ),
         LiquidGlassNativeGroupScope(
@@ -272,6 +278,8 @@ class LiquidGlassGroupedSurfaceState extends State<LiquidGlassGroupedSurface> {
           ? null
           : '#${tintColor.toARGB32().toRadixString(16).padLeft(8, '0')}',
       'tintOpacity': widget.settings.tintOpacity,
+      'borderOpacity': widget.settings.borderOpacity,
+      'borderWidth': widget.settings.borderWidth,
       'iosGlassStyle': widget.settings.iosGlassStyle.name,
       'interactive': widget.interactive,
     };

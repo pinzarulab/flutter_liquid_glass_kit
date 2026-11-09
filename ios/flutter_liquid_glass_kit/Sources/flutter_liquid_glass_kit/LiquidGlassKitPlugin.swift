@@ -114,6 +114,8 @@ class LiquidGlassSurfaceView: NSObject, FlutterPlatformView {
   private func setupGlassView(frame: CGRect, args: [String: Any]?) {
     let radii = LiquidGlassCornerRadii(arguments: args)
     let tintOpacity = liquidGlassUnitValue(args?["tintOpacity"], fallback: 0.15)
+    let borderOpacity = args?["borderOpacity"].map { liquidGlassUnitValue($0, fallback: 0.25) }
+    let borderWidth = args?["borderWidth"].map { liquidGlassNonnegativeValue($0, fallback: 1) }
     let tintHex = args?["tintColorHex"] as? String
     let iosGlassStyle = args?["iosGlassStyle"] as? String ?? "system"
     let interactive = args?["interactive"] as? Bool ?? false
@@ -125,6 +127,8 @@ class LiquidGlassSurfaceView: NSObject, FlutterPlatformView {
           cornerRadii: radii,
           tintOpacity: tintOpacity,
           tintColorHex: tintHex,
+          borderOpacity: borderOpacity,
+          borderWidth: borderWidth,
           iosGlassStyle: iosGlassStyle,
           interactive: interactive
         )
@@ -134,7 +138,9 @@ class LiquidGlassSurfaceView: NSObject, FlutterPlatformView {
         LegacyLiquidGlassSurface(
           cornerRadii: radii,
           tintOpacity: tintOpacity,
-          tintColorHex: tintHex
+          tintColorHex: tintHex,
+          borderOpacity: borderOpacity,
+          borderWidth: borderWidth
         )
       )
     }
@@ -158,6 +164,8 @@ private struct LiquidGlassSurfaceDescriptor: Identifiable {
   let cornerRadii: LiquidGlassCornerRadii
   let tintOpacity: Double
   let tintColorHex: String?
+  let borderOpacity: Double?
+  let borderWidth: Double?
   let iosGlassStyle: String
   let interactive: Bool
 
@@ -177,6 +185,8 @@ private struct LiquidGlassSurfaceDescriptor: Identifiable {
     cornerRadii = LiquidGlassCornerRadii(arguments: arguments)
     tintOpacity = liquidGlassUnitValue(arguments["tintOpacity"], fallback: 0.15)
     tintColorHex = arguments["tintColorHex"] as? String
+    borderOpacity = arguments["borderOpacity"].map { liquidGlassUnitValue($0, fallback: 0.25) }
+    borderWidth = arguments["borderWidth"].map { liquidGlassNonnegativeValue($0, fallback: 1) }
     iosGlassStyle = arguments["iosGlassStyle"] as? String ?? "system"
     interactive = arguments["interactive"] as? Bool ?? false
   }
@@ -196,7 +206,9 @@ private struct LegacyLiquidGlassGroup: View {
         LegacyLiquidGlassSurface(
           cornerRadii: surface.cornerRadii,
           tintOpacity: surface.tintOpacity,
-          tintColorHex: surface.tintColorHex
+          tintColorHex: surface.tintColorHex,
+          borderOpacity: surface.borderOpacity,
+          borderWidth: surface.borderWidth
         )
         .frame(width: surface.frame.width, height: surface.frame.height)
         .offset(x: surface.frame.minX, y: surface.frame.minY)
@@ -219,6 +231,8 @@ private struct LiquidGlassGroup: View {
             cornerRadii: surface.cornerRadii,
             tintOpacity: surface.tintOpacity,
             tintColorHex: surface.tintColorHex,
+            borderOpacity: surface.borderOpacity,
+            borderWidth: surface.borderWidth,
             iosGlassStyle: surface.iosGlassStyle,
             interactive: surface.interactive
           )
@@ -675,6 +689,8 @@ struct LegacyLiquidGlassSurface: View {
   let cornerRadii: LiquidGlassCornerRadii
   let tintOpacity: Double
   let tintColorHex: String?
+  let borderOpacity: Double?
+  let borderWidth: Double?
 
   private var tintColor: Color {
     Color(uiColor: liquidGlassColor(from: tintColorHex ?? "#FFFFFFFF"))
@@ -696,8 +712,8 @@ struct LegacyLiquidGlassSurface: View {
     }
     .overlay(
       shape.stroke(
-        Color.white.opacity(contrast == .increased ? 0.58 : 0.25),
-        lineWidth: contrast == .increased ? 1.5 : 1
+        Color.white.opacity(borderOpacity ?? (contrast == .increased ? 0.58 : 0.25)),
+        lineWidth: borderWidth ?? (contrast == .increased ? 1.5 : 1)
       )
     )
     .clipShape(shape)
@@ -713,6 +729,8 @@ struct LiquidGlassSurface: View {
   let cornerRadii: LiquidGlassCornerRadii
   let tintOpacity: Double
   let tintColorHex: String?
+  let borderOpacity: Double?
+  let borderWidth: Double?
   let iosGlassStyle: String
   let interactive: Bool
 
@@ -735,8 +753,8 @@ struct LiquidGlassSurface: View {
         .fill(tintColor.opacity(max(effectiveTintOpacity, 0.82)))
         .overlay(
           shape.stroke(
-            Color.white.opacity(contrast == .increased ? 0.64 : 0.36),
-            lineWidth: contrast == .increased ? 1.5 : 1
+            Color.white.opacity(borderOpacity ?? (contrast == .increased ? 0.64 : 0.36)),
+            lineWidth: borderWidth ?? (contrast == .increased ? 1.5 : 1)
           )
         )
     } else {

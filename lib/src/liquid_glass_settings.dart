@@ -82,10 +82,13 @@ class LiquidGlassSettings {
   /// Set to `0` to disable fallback backdrop blur entirely.
   final double androidBlurSigma;
 
-  /// Opacity of the fallback renderer's white border highlight.
+  /// Opacity of the white border drawn by the Flutter fallback and by iOS
+  /// legacy material or Reduce Transparency mode.
+  ///
+  /// SwiftUI draws the rim of its system glass effect separately.
   final double borderOpacity;
 
-  /// Width of the fallback renderer's border in logical pixels.
+  /// Width of the custom border in logical pixels. See [borderOpacity].
   final double borderWidth;
 
   /// Opacity of the fallback renderer's black drop shadow.

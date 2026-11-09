@@ -27,6 +27,7 @@ class LiquidGlassCard extends StatelessWidget {
     required this.child,
     LiquidGlassSettings? settings,
     this.androidColor,
+    this.nativeGlassEnabled = true,
     this.borderRadius = const BorderRadius.all(Radius.circular(24)),
     this.width,
     this.height,
@@ -43,6 +44,9 @@ class LiquidGlassCard extends StatelessWidget {
   /// This overrides inherited [LiquidGlassSettings.androidColor] and disables
   /// Android glass effects for this card. It has no effect on other platforms.
   final Color? androidColor;
+
+  /// Set to false to render the surface in Flutter while keeping [child] mounted.
+  final bool nativeGlassEnabled;
 
   /// The locally supplied settings, or [LiquidGlassSettings.matteLight] when
   /// no local settings were supplied.
@@ -78,6 +82,7 @@ class LiquidGlassCard extends StatelessWidget {
     return Padding(
       padding: margin,
       child: PlatformGlass(
+        nativeGlassEnabled: nativeGlassEnabled,
         borderRadius: borderRadius,
         settings: effectiveSettings,
         width: width,
